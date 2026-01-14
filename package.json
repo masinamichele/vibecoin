@@ -1,0 +1,22 @@
+{
+  "name": "mkoin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dsit/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "prestart": "npm run build",
+    "start": "node dist/index.js",
+    "start:watch": "@powershell -ExecutionPolicy Bypass -Command $env:DEBUG='vibe:*'; nodemon dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.0.8",
+    "nodemon": "^3.1.11",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3"
+  }
+}
