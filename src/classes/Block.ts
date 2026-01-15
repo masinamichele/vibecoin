@@ -28,6 +28,7 @@ export class Block {
 
   constructor(block: BlockData) {
     this.data = block.data;
+    assert(this.data.length > 0, 'A block must contain at least one transaction');
     this.previousHash = block.previousHash;
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
@@ -40,8 +41,6 @@ export class Block {
   }
 
   private calculateMerkleRoot(): string {
-    if (this.data.length === 0) return hash('sha256', '');
-
     let hashes = this.data.map((tx) => tx.hash);
 
     while (hashes.length > 1) {

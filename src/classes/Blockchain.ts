@@ -3,6 +3,7 @@ import { Transaction, TransactionType } from './Transaction';
 import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
+
 const debug = require('debug')(`${config.LogTag}:chain `);
 
 type BlockchainProperties = {
@@ -15,7 +16,7 @@ export class Blockchain {
   private pendingTransactionPool: Transaction[] = [];
 
   readonly treasury: Wallet;
-  readonly burn: Wallet;
+  readonly burner: Wallet;
 
   private initialized = false;
 
@@ -27,7 +28,7 @@ export class Blockchain {
     this.difficulty = properties.difficulty;
     debug(`Initializing ${config.CurrencyName} blockchain with difficulty ${this.difficulty}`);
     this.treasury = new Wallet({ name: config.TreasuryName });
-    this.burn = new Wallet({ name: config.BurnName });
+    this.burner = new Wallet({ name: config.BurnName });
   }
 
   async init() {
@@ -40,15 +41,14 @@ export class Blockchain {
 
   private async generateGenesisBlock() {
     assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
+    const genesisTransaction = new Transaction({
+      from: null,
+      to: this.treasury,
+      amount: config.GenesisCoinsAmount,
+      type: TransactionType.Genesis,
+    });
     const block = new Block({
-      data: [
-        new Transaction({
-          from: null,
-          to: this.treasury,
-          amount: config.GenesisCoinsAmount,
-          type: TransactionType.Genesis,
-        }),
-      ],
+      data: [genesisTransaction],
       previousHash: null,
     });
     await block.mine(this.difficulty);
@@ -83,7 +83,7 @@ export class Blockchain {
   }
 
   calculateTransactionFees(transaction: Transaction) {
-    if (!transaction.from) return 0;
+    if (transaction.type != TransactionType.Transaction) return 0;
     return config.FixedTransactionFee + transaction.amount * transaction.fee;
   }
 
@@ -102,7 +102,7 @@ export class Blockchain {
       debug('Pending transaction pool size limit reached, scheduling auto-mine');
       clearTimeout(this.autoMineSchedule);
       this.autoMineSchedule = setTimeout(
-        () => this.minePendingTransactions(this.burn),
+        () => this.minePendingTransactions(this.burner),
         config.AutoMineDelaySeconds * 1000,
       );
     }
@@ -112,10 +112,14 @@ export class Blockchain {
     let balance = 0;
     for (const block of this.blocks) {
       for (const transaction of block.data) {
-        if (transaction.from) {
-          if (transaction.from.address === wallet.address) balance -= this.getTotalTransactionAmount(transaction);
+        if (transaction.type === TransactionType.Transaction) {
+          if (transaction.from.address === wallet.address) {
+            balance -= this.getTotalTransactionAmount(transaction);
+          }
         }
-        if (transaction.to.address === wallet.address) balance += transaction.amount;
+        if (transaction.to.address === wallet.address) {
+          balance += transaction.amount;
+        }
       }
     }
     return balance;
@@ -137,7 +141,7 @@ export class Blockchain {
   async minePendingTransactions(rewardWallet: Wallet) {
     debug(`${rewardWallet.name} is trying to mine ${this.pendingTransactionPool.length} transactions`);
 
-    if (rewardWallet != this.burn && this.autoMineSchedule) {
+    if (rewardWallet != this.burner && this.autoMineSchedule) {
       debug('Clearing auto-mine schedule');
       clearTimeout(this.autoMineSchedule);
       this.autoMineSchedule = null;

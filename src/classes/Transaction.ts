@@ -38,7 +38,7 @@ export class Transaction {
     }
     this.to = data.to;
     this.amount = data.amount;
-    this.fee = data.from ? (data.fee ?? config.DefaultFeePercentage) : 0;
+    this.fee = this.type === TransactionType.Transaction ? (data.fee ?? config.DefaultFeePercentage) : 0;
     this.timestamp = Date.now();
     this.hash = this.generateHash();
     if (this.type === TransactionType.Transaction) {

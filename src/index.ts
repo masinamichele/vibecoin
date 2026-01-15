@@ -21,5 +21,5 @@ console.log();
 
   debug(`Total: ${currency(chain.getTotalSupply())}`);
   debug(`Available: ${currency(chain.getBalance(chain.treasury))}`);
-  debug(`Burnt: ${currency(chain.getBalance(chain.burn))}`);
+  debug(`Burnt: ${currency(chain.getBalance(chain.burner))}`);
 })();
