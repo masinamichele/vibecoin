@@ -5,6 +5,7 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 ## Features
 
 ### Core Blockchain Functionality
+
 - **Proof-of-Work Mining** - Configurable difficulty with multi-threaded worker pool
 - **Merkle Tree Implementation** - Efficient transaction verification
 - **Digital Signatures** - ECDSA (secp256k1) transaction signing and verification
@@ -12,12 +13,14 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 - **Genesis Block** - Automated initial supply distribution
 
 ### Transaction System
+
 - **Dual-Fee Model** - Fixed fee + percentage-based fee
 - **Transaction Pool** - Pending transaction management with validation
 - **Balance Tracking** - Real-time wallet balance calculation
 - **Fee Distribution** - Separate reward and fee transactions for transparency
 
 ### Economic Mechanisms
+
 - **Mining Rewards** - Configurable reward per transaction mined
 - **Auto-Mining with Burn** - Automatic deflationary mechanism when pending pool reaches threshold
 - **Voluntary Mining** - Miners can claim rewards by mining blocks before auto-mine triggers
@@ -25,6 +28,7 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 - **Burn Address** - Deflationary token burning for unused mining rewards
 
 ### Advanced Features
+
 - **Multi-threaded Mining** - Parallel nonce search using worker threads
 - **Configurable Parameters** - All blockchain parameters adjustable via config
 - **Transaction Types** - Genesis, Transaction, Reward, and Fee transactions clearly distinguished
@@ -92,22 +96,22 @@ export default {
   CurrencyName: 'Vibecoin',
   CurrencyCode: 'VIBE',
   CurrencySymbol: 'Ꝟ',
-  
+
   // Blockchain
-  BlockchainDifficulty: 4,              // PoW difficulty (leading zeros)
-  MaxPendingTransactions: 10,           // Auto-mine threshold
-  AutoMineDelaySeconds: 30,             // Grace period for miners
-  GenesisCoinsAmount: 1000,             // Initial supply
-  
+  BlockchainDifficulty: 4, // PoW difficulty (leading zeros)
+  MaxPendingTransactions: 10, // Auto-mine threshold
+  AutoMineDelaySeconds: 30, // Grace period for miners
+  GenesisCoinsAmount: 1000, // Initial supply
+
   // Economics
-  RewardPerMinedTransaction: 0.1,       // Mining reward per tx
-  FixedTransactionFee: 0.05,            // Fixed fee component
-  DefaultFeePercentage: 0.01,           // 1% variable fee
-  
+  RewardPerMinedTransaction: 0.1, // Mining reward per tx
+  FixedTransactionFee: 0.05, // Fixed fee component
+  DefaultFeePercentage: 0.01, // 1% variable fee
+
   // Mining
-  BlockMinerPoolSize: 10,               // Worker thread count
-  MaxBlockNonce: 10_000_000,            // Nonce range per worker
-}
+  BlockMinerPoolSize: 10, // Worker thread count
+  MaxBlockNonce: 10_000_000, // Nonce range per worker
+};
 ```
 
 ## Usage Examples
@@ -130,7 +134,7 @@ const miner = new Wallet({ name: 'Miner' });
 const fundingTx = new Transaction({
   from: chain.treasury,
   to: alice,
-  amount: 100
+  amount: 100,
 });
 await chain.addTransaction(fundingTx);
 
@@ -141,7 +145,7 @@ await chain.minePendingTransactions(miner);
 const paymentTx = new Transaction({
   from: alice,
   to: bob,
-  amount: 50
+  amount: 50,
 });
 await chain.addTransaction(paymentTx);
 
@@ -157,7 +161,7 @@ for (let i = 0; i < 15; i++) {
   const tx = new Transaction({
     from: alice,
     to: bob,
-    amount: 1
+    amount: 1,
   });
   await chain.addTransaction(tx);
 }
@@ -181,10 +185,10 @@ console.log(chain.getBalance(alice));
 console.log(chain.getTotalSupply());
 
 // Get burned amount (deflation)
-console.log(chain.getBalance(chain.burn));
+console.log(chain.getBurnedAmount());
 
 // Get circulating supply
-const circulating = chain.getTotalSupply() - chain.getBalance(chain.burn);
+console.log(chain.getCirculatingSupply());
 ```
 
 ## Economic Model
@@ -192,11 +196,13 @@ const circulating = chain.getTotalSupply() - chain.getBalance(chain.burn);
 ### Fee Structure
 
 Each transaction costs:
+
 - **Fixed Fee**: 0.05 VIBE (configurable)
 - **Variable Fee**: 1% of transaction amount (configurable)
 - **Total Cost**: `amount + 0.05 + (amount × 0.01)`
 
 Example:
+
 ```
 Transfer 100 VIBE
 ├── Amount: 100 VIBE
@@ -208,12 +214,14 @@ Transfer 100 VIBE
 ### Mining Rewards
 
 Miners receive:
+
 - **Transaction Rewards**: 0.1 VIBE per transaction (configurable)
 - **Collected Fees**: All fees from transactions in block
 
 ### Deflationary Mechanism
 
 When pending pool reaches threshold:
+
 1. **Grace Period**: 30 seconds for voluntary miners
 2. **Auto-Mining**: If no miner acts, block is mined automatically
 3. **Burn**: Rewards and fees sent to burn address (removed from circulation)
@@ -224,6 +232,7 @@ When pending pool reaches threshold:
 ### Proof-of-Work
 
 The blockchain uses SHA-256 based proof-of-work:
+
 - Miners search for nonce where `hash(block)` starts with N zeros
 - Difficulty = number of leading zeros required
 - Multi-threaded search with 10 worker threads
@@ -232,6 +241,7 @@ The blockchain uses SHA-256 based proof-of-work:
 ### Digital Signatures
 
 ECDSA with secp256k1 curve (same as Bitcoin):
+
 - Private key signs transaction hash
 - Public key verifies signature
 - Prevents unauthorized transactions
@@ -240,6 +250,7 @@ ECDSA with secp256k1 curve (same as Bitcoin):
 ### Merkle Tree
 
 Transactions organized in binary hash tree:
+
 - Leaf nodes: individual transaction hashes
 - Internal nodes: hash of child hashes
 - Root: single hash representing all transactions
@@ -273,6 +284,7 @@ vibecoin/
 ### Debug Logging
 
 Enable debug output:
+
 ```bash
 # All logs
 DEBUG=vibe:* npm start
@@ -312,6 +324,7 @@ console.log(`Block valid: ${block.validate()}`);
 ## Future Enhancements
 
 Potential additions for learning:
+
 - [ ] Peer-to-peer networking
 - [ ] Blockchain persistence (file storage)
 - [ ] Dynamic difficulty adjustment
@@ -324,6 +337,7 @@ Potential additions for learning:
 ## Educational Purpose
 
 This project is designed for learning blockchain fundamentals:
+
 - ✅ Cryptographic concepts (hashing, signatures)
 - ✅ Consensus mechanisms (proof-of-work)
 - ✅ Economic incentives (mining, fees)
@@ -341,6 +355,7 @@ MIT License - Free for educational use
 ## Acknowledgments
 
 Built using core Node.js modules only:
+
 - `crypto` - Hashing and signatures
 - `worker_threads` - Parallel mining
 - `assert` - Validation

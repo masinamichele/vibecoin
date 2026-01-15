@@ -16,7 +16,7 @@ export class Blockchain {
   private pendingTransactionPool: Transaction[] = [];
 
   readonly treasury: Wallet;
-  readonly burner: Wallet;
+  private readonly burner: Wallet;
 
   private initialized = false;
 
@@ -136,6 +136,14 @@ export class Blockchain {
       }
     }
     return supply;
+  }
+
+  getBurnedAmount() {
+    return this.getBalance(this.burner);
+  }
+
+  getCirculatingSupply() {
+    return this.getTotalSupply() - this.getBurnedAmount();
   }
 
   async minePendingTransactions(rewardWallet: Wallet) {
