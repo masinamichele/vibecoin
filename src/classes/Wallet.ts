@@ -1,6 +1,7 @@
-import { generateKeyPairSync } from 'node:crypto';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import config from '../config';
-import { cleanKey, currency } from '../utils';
+import { cleanKey, currency, restoreKey } from '../utils';
+import { Transaction } from './Transaction';
 const debug = require('debug')(`${config.LogTag}:wallet`);
 
 type WalletOptions = {
@@ -8,7 +9,7 @@ type WalletOptions = {
 };
 
 export class Wallet {
-  readonly key: string;
+  private readonly key: string;
   readonly address: string;
   private balance = 0;
 
@@ -28,8 +29,13 @@ export class Wallet {
 
   updateBalance(amount: number) {
     this.balance += amount;
-    debug(
-      `Wallet balance for ${this.name}: ${['-', '+'][+(amount > 0)]}${currency(Math.abs(amount))} (${currency(this.balance)})`,
-    );
+    const transactionSign = ['-', '+'][+(amount > 0)];
+    debug(`Balance for ${this.name}: ${transactionSign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
+  }
+
+  signTransaction(transaction: Transaction) {
+    const pem = restoreKey(Buffer.from(this.key, 'hex').toString('ascii'), 'PRIVATE');
+    transaction.signature = sign('sha256', Buffer.from(transaction.hash), pem).toString('hex');
+    debug('Transaction signed');
   }
 }

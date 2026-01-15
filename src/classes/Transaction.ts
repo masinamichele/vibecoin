@@ -1,4 +1,4 @@
-import { hash, sign, verify } from 'node:crypto';
+import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
 const debug = require('debug')(`${config.LogTag}:tx    `);
@@ -28,7 +28,7 @@ export class Transaction {
   readonly timestamp: number;
   readonly fee: number;
   readonly type: TransactionType;
-  private signature: string = null;
+  signature: string = null;
 
   constructor(data: TransactionData) {
     this.type = data.type ?? TransactionType.Transaction;
@@ -46,7 +46,7 @@ export class Transaction {
       debug(`Fixed transaction fee: ${currency(config.FixedTransactionFee)}`);
       debug(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
       debug(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
-      this.sign(this.from.key);
+      this.from.signTransaction(this);
     } else {
       debug(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);
     }
@@ -57,16 +57,12 @@ export class Transaction {
     return hash('sha256', key);
   }
 
-  sign(key: string) {
-    const pem = restoreKey(Buffer.from(key, 'hex').toString('ascii'), 'PRIVATE');
-    this.signature = sign('sha256', Buffer.from(this.hash), pem).toString('hex');
-    debug('Transaction signed');
-  }
-
   verify() {
     try {
       const pem = restoreKey(Buffer.from(this.from.address, 'hex').toString('ascii'), 'PUBLIC');
-      return verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
+      const valid = verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
+      if (valid) debug('Transaction verified');
+      return valid;
     } catch {
       return false;
     }
