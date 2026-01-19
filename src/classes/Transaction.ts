@@ -1,9 +1,10 @@
 import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
-const debug = require('debug')(`${config.LogTag}:tx    `);
-import { currency, restoreKey } from '../utils';
+import { currency, getDebug, restoreKey } from '../utils';
 import assert from 'node:assert/strict';
+
+const debug = getDebug('tx');
 
 export enum TransactionType {
   Genesis = 'G',

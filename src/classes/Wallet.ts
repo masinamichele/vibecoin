@@ -1,8 +1,8 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
-import config from '../config';
-import { cleanKey, currency, restoreKey } from '../utils';
+import { cleanKey, currency, getDebug, restoreKey } from '../utils';
 import { Transaction } from './Transaction';
-const debug = require('debug')(`${config.LogTag}:wallet`);
+
+const debug = getDebug('wallet');
 
 type WalletOptions = {
   name: string;

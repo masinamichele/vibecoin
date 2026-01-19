@@ -4,7 +4,9 @@ import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import config from '../config';
-const debug = require('debug')(`${config.LogTag}:block `);
+import { getDebug } from '../utils';
+
+const debug = getDebug('block');
 
 type BlockData = {
   data: Transaction[];

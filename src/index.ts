@@ -1,7 +1,8 @@
 import { Blockchain, Transaction, Wallet } from './classes';
 import config from './config';
-import { currency } from './utils';
-const debug = require('debug')(`${config.LogTag}:main  `);
+import { currency, getDebug } from './utils';
+
+const debug = getDebug('main');
 
 console.clear();
 console.log(`${config.CurrencySymbol} ${config.CurrencyName} Blockchain`);
@@ -21,5 +22,6 @@ console.log();
 
   debug(`Total: ${currency(chain.getTotalSupply())}`);
   debug(`Available: ${currency(chain.getBalance(chain.treasury))}`);
-  debug(`Burnt: ${currency(chain.getCirculatingSupply())}`);
+  debug(`Circulating: ${currency(chain.getCirculatingSupply())}`);
+  debug(`Burnt: ${currency(chain.getBurnedAmount())}`);
 })();

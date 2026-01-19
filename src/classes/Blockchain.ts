@@ -3,8 +3,9 @@ import { Transaction, TransactionType } from './Transaction';
 import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
+import { getDebug } from '../utils';
 
-const debug = require('debug')(`${config.LogTag}:chain `);
+const debug = getDebug('chain');
 
 type BlockchainProperties = {
   difficulty: number;
