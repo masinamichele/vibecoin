@@ -16,8 +16,8 @@ export class Blockchain {
   private readonly blocks: Block[] = [];
   private pendingTransactionPool: Transaction[] = [];
 
-  readonly treasury: Wallet;
-  private readonly burner: Wallet;
+  readonly faucet: Wallet;
+  private readonly drain: Wallet;
 
   private initialized = false;
 
@@ -28,8 +28,8 @@ export class Blockchain {
     assert(properties.difficulty > 0, 'Difficulty must be a positive number');
     this.difficulty = properties.difficulty;
     debug(`Initializing ${config.CurrencyName} blockchain with difficulty ${this.difficulty}`);
-    this.treasury = new Wallet({ name: config.TreasuryName });
-    this.burner = new Wallet({ name: config.BurnName });
+    this.faucet = new Wallet({ name: config.FaucetName });
+    this.drain = new Wallet({ name: config.DrainName });
   }
 
   async init() {
@@ -44,7 +44,7 @@ export class Blockchain {
     assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
     const genesisTransaction = new Transaction({
       from: null,
-      to: this.treasury,
+      to: this.faucet,
       amount: config.GenesisCoinsAmount,
       type: TransactionType.Genesis,
     });
@@ -53,7 +53,7 @@ export class Blockchain {
       previousHash: null,
     });
     await block.mine(this.difficulty);
-    this.treasury.updateBalance(config.GenesisCoinsAmount);
+    this.faucet.updateBalance(config.GenesisCoinsAmount);
     return block;
   }
 
@@ -103,7 +103,7 @@ export class Blockchain {
       debug('Pending transaction pool size limit reached, scheduling auto-mine');
       clearTimeout(this.autoMineSchedule);
       this.autoMineSchedule = setTimeout(
-        () => this.minePendingTransactions(this.burner),
+        () => this.minePendingTransactions(this.drain),
         config.AutoMineDelaySeconds * 1000,
       );
     }
@@ -139,18 +139,18 @@ export class Blockchain {
     return supply;
   }
 
-  getBurnedAmount() {
-    return this.getBalance(this.burner);
+  getDrainedAmount() {
+    return this.getBalance(this.drain);
   }
 
   getCirculatingSupply() {
-    return this.getTotalSupply() - this.getBurnedAmount();
+    return this.getTotalSupply() - this.getDrainedAmount();
   }
 
   async minePendingTransactions(rewardWallet: Wallet) {
     debug(`${rewardWallet.name} is trying to mine ${this.pendingTransactionPool.length} transactions`);
 
-    if (rewardWallet != this.burner && this.autoMineSchedule) {
+    if (rewardWallet != this.drain && this.autoMineSchedule) {
       debug('Clearing auto-mine schedule');
       clearTimeout(this.autoMineSchedule);
       this.autoMineSchedule = null;

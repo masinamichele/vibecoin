@@ -4,8 +4,8 @@ export default {
   CurrencyCode: 'VIBE',
   CurrencySymbol: 'Ꝟ',
   // Wallet configuration
-  TreasuryName: 'Ꝟibe',
-  BurnName: 'Ꝟoid',
+  FaucetName: 'Ꝟibe',
+  DrainName: 'Ꝟoid',
   // Blockchain configuration
   BlockchainDifficulty: 5,
   MaxPendingTransactions: 10,

@@ -15,13 +15,15 @@ console.log();
   const alice = new Wallet({ name: 'Alice' });
   const bob = new Wallet({ name: 'Bob' });
 
-  const t1 = new Transaction({ from: chain.treasury, to: alice, amount: 1 });
+  const t1 = new Transaction({ from: chain.faucet, to: alice, amount: 100 });
   await chain.addTransaction(t1);
+  const t2 = new Transaction({ from: chain.faucet, to: bob, amount: 100 });
+  await chain.addTransaction(t2);
 
   await chain.minePendingTransactions(bob);
 
   debug(`Total: ${currency(chain.getTotalSupply())}`);
-  debug(`Available: ${currency(chain.getBalance(chain.treasury))}`);
+  debug(`Available: ${currency(chain.getBalance(chain.faucet))}`);
   debug(`Circulating: ${currency(chain.getCirculatingSupply())}`);
-  debug(`Burnt: ${currency(chain.getBurnedAmount())}`);
+  debug(`Drained: ${currency(chain.getDrainedAmount())}`);
 })();
