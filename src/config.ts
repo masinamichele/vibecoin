@@ -8,7 +8,7 @@ export default {
   BurnName: 'Ꝟoid',
   // Blockchain configuration
   BlockchainDifficulty: 4,
-  MaxPendingTransactions: 1,
+  MaxPendingTransactions: 10,
   AutoMineDelaySeconds: 10,
   GenesisCoinsAmount: 1_000,
   // Transaction configuration
