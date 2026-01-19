@@ -7,7 +7,7 @@ export default {
   TreasuryName: 'Ꝟibe',
   BurnName: 'Ꝟoid',
   // Blockchain configuration
-  BlockchainDifficulty: 4,
+  BlockchainDifficulty: 5,
   MaxPendingTransactions: 10,
   AutoMineDelaySeconds: 10,
   GenesisCoinsAmount: 1_000,

@@ -1,7 +1,11 @@
 import config from './config';
 
 export const currency = (amount: number) => {
-  return `${config.CurrencySymbol}${amount.toFixed(10)}`;
+  const nf = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 10,
+    maximumFractionDigits: 10,
+  });
+  return `${config.CurrencySymbol}${nf.format(amount)}`;
 };
 
 export const cleanKey = (key: string) => key.replaceAll('\n', '').replaceAll(/-----(?:BEGIN|END) P\w+? KEY-----/g, '');
