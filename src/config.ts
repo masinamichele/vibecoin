@@ -18,6 +18,15 @@ export default {
   // Block mining configuration
   BlockMinerPoolSize: 10,
   MaxBlockNonce: 10_000_000,
+  // Contract configuration
+  ContractDeployBaseFee: 1,
+  ContractDeployPerByteFee: 0.001,
+  GasPrice: 0.000001,
+  DefaultGasLimit: 1_000_000,
+  MaxGasLimit: 10_000_000,
+  GasCostContractCall: 21_000,
+  GasCostStorageRead: 200,
+  GasCostStorageWrite: 5_000,
   // Misc configuration
   LogTag: 'vibe',
 };

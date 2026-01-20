@@ -4,6 +4,7 @@ import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
 import { getDebug } from '../utils';
+import { Contract } from './Contract';
 
 const debug = getDebug('chain');
 
@@ -23,6 +24,8 @@ export class Blockchain {
 
   private autoMineSchedule: any;
   private isMining = false;
+
+  private readonly contracts = new Set<string>();
 
   constructor(properties: BlockchainProperties) {
     assert(properties.difficulty > 0, 'Difficulty must be a positive number');
@@ -69,6 +72,21 @@ export class Blockchain {
     debug(`Added block, total blocks: ${this.blocks.length}`);
   }
 
+  async deployContract(contract: Contract<any, any>) {
+    assert(!this.contracts.has(contract.address), 'Contract already deployed');
+
+    const codeSize = contract.getCodeSize();
+    const deployFee = config.ContractDeployBaseFee + config.ContractDeployPerByteFee * codeSize;
+    const deployTransaction = new Transaction({
+      from: contract.creator,
+      to: this.drain,
+      amount: deployFee,
+      type: TransactionType.ContractDeploy,
+      contract,
+    });
+    await this.addTransaction(deployTransaction);
+  }
+
   validateIntegrity() {
     for (let i = 1; i < this.blocks.length; i++) {
       const currentBlock = this.blocks[i];
@@ -95,8 +113,11 @@ export class Blockchain {
   async addTransaction(transaction: Transaction) {
     assert(transaction.from && transaction.to, 'Transaction must have a sender and a receiver');
     assert(transaction.from.address !== transaction.to.address, 'Sender and receiver must be different');
-    assert(transaction.amount > 0, 'Transaction must have a positive amount');
+    if (transaction.type === TransactionType.Transaction) {
+      assert(transaction.amount > 0, 'Transaction must have a positive amount');
+    }
     assert(transaction.verify(), 'Transaction cannot be verified');
+
     this.pendingTransactionPool.push(transaction);
 
     if (this.pendingTransactionPool.length >= config.MaxPendingTransactions) {
@@ -147,6 +168,28 @@ export class Blockchain {
     return this.getTotalSupply() - this.getDrainedAmount();
   }
 
+  $<S extends object, F extends object>(
+    sender: Wallet,
+    contract: Contract<S, F>,
+    name: Exclude<keyof F, '__init__'>,
+    args?: any[],
+    gasLimit = config.DefaultGasLimit,
+  ) {
+    assert(this.contracts.has(contract.address), 'Contract is not deployed');
+    const callTransaction = new Transaction({
+      from: sender,
+      to: this.drain,
+      amount: 0,
+      type: TransactionType.ContractCall,
+      contract: contract as Contract<any, any>,
+      functionName: name,
+      functionArgs: args,
+      gasLimit: gasLimit,
+    });
+
+    return this.addTransaction(callTransaction);
+  }
+
   async minePendingTransactions(rewardWallet: Wallet) {
     debug(`${rewardWallet.name} is trying to mine ${this.pendingTransactionPool.length} transactions`);
 
@@ -168,11 +211,23 @@ export class Blockchain {
     const handledTransactions: Transaction[] = [];
     for (const transaction of this.pendingTransactionPool) {
       if (!transaction.verify()) continue;
+      if (transaction.type === TransactionType.ContractCall && !this.contracts.has(transaction.contract.address)) {
+        continue;
+      }
+
+      const spendingAmount = (() => {
+        if (transaction.type === TransactionType.ContractDeploy) {
+          return config.ContractDeployBaseFee + config.ContractDeployPerByteFee * transaction.contract.getCodeSize();
+        } else if (transaction.type === TransactionType.ContractCall) {
+          return transaction.amount + config.GasPrice * transaction.gasLimit;
+        }
+        return this.getTotalTransactionAmount(transaction);
+      })();
 
       if (!runningBalances[transaction.from.address]) {
         runningBalances[transaction.from.address] = this.getBalance(transaction.from);
       }
-      runningBalances[transaction.from.address] -= this.getTotalTransactionAmount(transaction);
+      runningBalances[transaction.from.address] -= spendingAmount;
 
       if (!runningBalances[transaction.to.address]) {
         runningBalances[transaction.to.address] = this.getBalance(transaction.to);
@@ -180,7 +235,7 @@ export class Blockchain {
       runningBalances[transaction.to.address] += transaction.amount;
 
       if (runningBalances[transaction.from.address] < 0) {
-        runningBalances[transaction.from.address] += this.getTotalTransactionAmount(transaction);
+        runningBalances[transaction.from.address] += spendingAmount;
         runningBalances[transaction.to.address] -= transaction.amount;
         continue;
       }
@@ -199,11 +254,33 @@ export class Blockchain {
       type: TransactionType.Reward,
     });
 
+    for (const tx of handledTransactions) {
+      if (tx.type === TransactionType.ContractDeploy) {
+        this.contracts.add(tx.contract.address);
+        tx.contract.initialize();
+        debug(`Contract '${tx.contract.name}' deployed`);
+      }
+
+      if (tx.type === TransactionType.ContractCall) {
+        //@ts-expect-error
+        const result = tx.contract.call(tx.from, tx.gasLimit)(tx.functionName, ...tx.functionArgs);
+        tx.gasUsed = result.gasUsed;
+        const gasCost = result.gasUsed * config.GasPrice;
+        tx.from.updateBalance(-gasCost);
+        if (!result.success) {
+          debug(`! ${result.error.name} in ${tx.contract.name}.${<string>tx.functionName}: ${result.error.message}`);
+        }
+      }
+    }
+
     const feesAmount = handledTransactions.reduce((acc, tx) => acc + this.calculateTransactionFees(tx), 0);
+    const gasFeesAmount = handledTransactions
+      .filter((tx) => tx.type === TransactionType.ContractCall)
+      .reduce((sum, tx) => sum + tx.gasUsed * config.GasPrice, 0);
     const feesTransaction = new Transaction({
       from: null,
       to: rewardWallet,
-      amount: feesAmount,
+      amount: feesAmount + gasFeesAmount,
       type: TransactionType.Fees,
     });
 

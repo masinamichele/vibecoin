@@ -29,10 +29,13 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 
 ### Advanced Features
 
+- **Smart Contracts** - JavaScript-based smart contracts with full gas metering
 - **Multi-threaded Mining** - Parallel nonce search using worker threads
+- **Gas System** - Complete gas tracking with storage read/write costs
 - **Configurable Parameters** - All blockchain parameters adjustable via config
-- **Transaction Types** - Genesis, Transaction, Reward, and Fee transactions clearly distinguished
+- **Transaction Types** - Genesis, Transaction, Reward, Fee, Contract Deploy, and Contract Call
 - **Auto-Mine Delay** - Grace period for voluntary miners before auto-mining triggers
+- **Deflationary Mechanics** - Deploy fees and unused mining rewards burned permanently
 
 ## Architecture
 
@@ -50,8 +53,9 @@ Block
 Blockchain
 ├── Blocks: Chain of validated blocks
 ├── Pending Pool: Unconfirmed transactions
-├── Treasury: Genesis supply holder
-├── Burn: Deflationary burn address
+├── Contracts: Deployed smart contracts registry
+├── Faucet: Genesis supply holder
+├── Drain: Deflationary burn address
 └── Auto-mine: Threshold-based mining
 
 Transaction
@@ -60,6 +64,8 @@ Transaction
 ├── Fee: Transaction cost
 ├── Signature: ECDSA signature
 ├── Type: Transaction classification
+├── Contract: Smart contract reference (if applicable)
+├── Gas Limit/Used: Gas tracking for contract calls
 └── Verification: Signature validation
 
 Wallet
@@ -67,6 +73,14 @@ Wallet
 ├── Public Key/Address: Wallet identifier
 ├── Balance: Real-time tracking
 └── Signing: Transaction authorization
+
+Contract
+├── Storage: Persistent state data
+├── Functions: Executable code
+├── Gas Metering: Automatic usage tracking
+├── Creator: Contract deployer
+├── Address: Unique contract identifier
+└── Initialization: One-time setup function
 ```
 
 ## Installation
@@ -98,15 +112,25 @@ export default {
   CurrencySymbol: 'Ꝟ',
 
   // Blockchain
-  BlockchainDifficulty: 4, // PoW difficulty (leading zeros)
+  BlockchainDifficulty: 5, // PoW difficulty (leading zeros)
   MaxPendingTransactions: 10, // Auto-mine threshold
-  AutoMineDelaySeconds: 30, // Grace period for miners
+  AutoMineDelaySeconds: 10, // Grace period for miners
   GenesisCoinsAmount: 1000, // Initial supply
 
   // Economics
   RewardPerMinedTransaction: 0.1, // Mining reward per tx
   FixedTransactionFee: 0.05, // Fixed fee component
   DefaultFeePercentage: 0.01, // 1% variable fee
+
+  // Smart Contracts
+  ContractDeployBaseFee: 1, // Base cost to deploy
+  ContractDeployPerByteFee: 0.001, // Cost per byte of code
+  GasPrice: 0.000001, // VIBE per gas unit
+  DefaultGasLimit: 1_000_000, // Default gas limit
+  MaxGasLimit: 10_000_000, // Maximum gas allowed
+  GasCostContractCall: 21_000, // Base call cost
+  GasCostStorageRead: 200, // Reading from storage
+  GasCostStorageWrite: 5_000, // Writing to storage
 
   // Mining
   BlockMinerPoolSize: 10, // Worker thread count
@@ -122,7 +146,7 @@ export default {
 import { Blockchain, Transaction, Wallet } from './classes';
 
 // Initialize blockchain
-const chain = new Blockchain({ difficulty: 4 });
+const chain = new Blockchain({ difficulty: 5 });
 await chain.init();
 
 // Create wallets
@@ -130,9 +154,9 @@ const alice = new Wallet({ name: 'Alice' });
 const bob = new Wallet({ name: 'Bob' });
 const miner = new Wallet({ name: 'Miner' });
 
-// Fund Alice from treasury
+// Fund Alice from faucet
 const fundingTx = new Transaction({
-  from: chain.treasury,
+  from: chain.faucet,
   to: alice,
   amount: 100,
 });
@@ -151,6 +175,46 @@ await chain.addTransaction(paymentTx);
 
 // Voluntary mining
 await chain.minePendingTransactions(miner);
+```
+
+### Smart Contract Deployment and Usage
+
+```typescript
+import { Contract } from './classes';
+
+// Create a simple counter contract
+const counter = new Contract({
+  name: 'Counter',
+  creator: alice,
+  code: {
+    storage: { count: 0, owner: null },
+    functions: {
+      __init__() {
+        this.storage.owner = this.msg.sender;
+      },
+      increment(amount = 1) {
+        if (this.msg.sender !== this.storage.owner) {
+          throw new Error('Only owner can increment');
+        }
+        this.storage.count += amount;
+      },
+      get() {
+        return this.storage.count;
+      },
+    },
+  },
+});
+
+// Deploy contract (costs deploy fee)
+await chain.deployContract(counter);
+await chain.minePendingTransactions(miner);
+
+// Call contract function (costs gas)
+await chain.$(alice, counter, 'increment', [5]);
+await chain.minePendingTransactions(miner);
+
+// Read contract state (off-chain, free)
+console.log(counter.getSnapshot()); // { count: 5, owner: '...' }
 ```
 
 ### Auto-Mining Mechanism
@@ -184,8 +248,8 @@ console.log(chain.getBalance(alice));
 // Get total supply
 console.log(chain.getTotalSupply());
 
-// Get burned amount (deflation)
-console.log(chain.getBurnedAmount());
+// Get drained/burned amount (deflation)
+console.log(chain.getDrainedAmount());
 
 // Get circulating supply
 console.log(chain.getCirculatingSupply());
@@ -211,21 +275,157 @@ Transfer 100 VIBE
 └── Total Cost: 101.05 VIBE
 ```
 
+### Smart Contract Costs
+
+**Deployment:**
+
+- **Base Fee**: 1 VIBE (burned to drain address)
+- **Per-Byte Fee**: 0.001 VIBE per byte of code (burned to drain address)
+- Larger contracts cost more to discourage spam
+
+**Execution:**
+
+- **Base Call Cost**: 21,000 gas
+- **Storage Read**: 200 gas per operation
+- **Storage Write**: 5,000 gas per operation
+- **Gas Price**: 0.000001 VIBE per gas unit
+- Gas costs go to the miner as fees
+
+Example:
+
+```
+Contract call with 2 reads and 1 write:
+├── Base: 21,000 gas
+├── Reads: 400 gas (2 × 200)
+├── Writes: 5,000 gas (1 × 5,000)
+├── Total: 26,400 gas
+└── Cost: 0.0264 VIBE (26,400 × 0.000001)
+```
+
 ### Mining Rewards
 
 Miners receive:
 
 - **Transaction Rewards**: 0.1 VIBE per transaction (configurable)
-- **Collected Fees**: All fees from transactions in block
+- **Transaction Fees**: All fixed and variable fees from regular transactions
+- **Gas Fees**: All gas costs from contract executions
 
 ### Deflationary Mechanism
 
 When pending pool reaches threshold:
 
-1. **Grace Period**: 30 seconds for voluntary miners
+1. **Grace Period**: 10 seconds for voluntary miners
 2. **Auto-Mining**: If no miner acts, block is mined automatically
-3. **Burn**: Rewards and fees sent to burn address (removed from circulation)
-4. **Effect**: Reduces total supply, increases scarcity
+3. **Burn**: Rewards and fees sent to drain address (removed from circulation)
+4. **Contract Deploy Fees**: Always burned, never go to miners
+5. **Effect**: Reduces total supply, increases scarcity
+
+## Smart Contracts
+
+Vibecoin supports JavaScript-based smart contracts with automatic gas metering and state management.
+
+### Contract Structure
+
+```typescript
+const myContract = new Contract({
+  name: 'MyContract',
+  creator: ownerWallet,
+  code: {
+    // Initial state
+    storage: {
+      value: 0,
+      owner: null,
+    },
+
+    // Functions
+    functions: {
+      // Initialization (called once on deploy)
+      __init__() {
+        this.storage.owner = this.msg.sender;
+      },
+
+      // Public functions
+      setValue(newValue: number) {
+        // Access control
+        if (this.msg.sender !== this.storage.owner) {
+          throw new Error('Unauthorized');
+        }
+        // State modification (costs gas)
+        this.storage.value = newValue;
+      },
+
+      getValue() {
+        // State reading (costs gas when called on-chain)
+        return this.storage.value;
+      },
+    },
+  },
+});
+```
+
+### Gas System
+
+Every operation consumes gas:
+
+- **Storage Read**: 200 gas per access
+- **Storage Write**: 5,000 gas per modification
+- **Base Call**: 21,000 gas per function invocation
+
+Gas is tracked automatically using JavaScript Proxies. If a contract runs out of gas, execution reverts and the caller pays for gas consumed up to the limit.
+
+### Contract Deployment
+
+```typescript
+// Deploy costs: base fee + per-byte fee
+await chain.deployContract(myContract);
+await chain.minePendingTransactions(miner);
+
+// Deploy fee is burned (deflationary)
+```
+
+### Contract Execution
+
+```typescript
+// Call function (costs gas)
+await chain.$(wallet, contract, 'setValue', [42], gasLimit);
+await chain.minePendingTransactions(miner);
+
+// Gas fees go to the miner
+```
+
+### Reading Contract State
+
+```typescript
+// Off-chain read (free, instant)
+const state = contract.getSnapshot();
+console.log(state); // { value: 42, owner: '0x...' }
+```
+
+### Context Variables
+
+Inside contract functions:
+
+- `this.storage` - Contract state (proxied for gas tracking)
+- `this.msg.sender` - Address of the caller
+- Throw errors to revert execution
+
+### Error Handling
+
+```typescript
+functions: {
+  restrictedFunction() {
+    if (this.msg.sender !== this.storage.owner) {
+      throw new ChainError.OwnershipError('Not authorized');
+    }
+    // ... function logic
+  }
+}
+```
+
+Custom errors:
+
+- `ChainError.OwnershipError` - Access control violations
+- `ChainError.OutOfGasError` - Execution ran out of gas
 
 ## Technical Details
 
@@ -261,7 +461,9 @@ Transactions organized in binary hash tree:
 - **Genesis (G)**: Initial supply creation
 - **Transaction (T)**: Regular peer-to-peer transfer
 - **Reward (R)**: Mining reward to block miner
-- **Fees (F)**: Fee collection to block miner
+- **Fees (F)**: Fee collection to block miner (includes gas fees)
+- **ContractDeploy (D)**: Smart contract deployment
+- **ContractCall (C)**: Smart contract function execution
 
 ## Development
 
@@ -270,15 +472,18 @@ Transactions organized in binary hash tree:
 ```
 vibecoin/
 ├── classes/
-│   ├── Block.ts           # Block implementation
-│   ├── Blockchain.ts      # Main blockchain logic
-│   ├── Transaction.ts     # Transaction handling
-│   ├── Wallet.ts          # Wallet management
-│   └── index.ts           # Exports
-├── block-miner.worker.ts  # Mining worker thread
-├── config.ts              # Configuration
-├── utils.ts               # Helper functions
-└── index.ts               # Entry point
+│   ├── Block.ts            # Block implementation
+│   ├── Blockchain.ts       # Main blockchain logic
+│   ├── Transaction.ts      # Transaction handling
+│   ├── Wallet.ts           # Wallet management
+│   ├── Contract.ts         # Smart contract engine
+│   └── index.ts            # Exports
+├── contracts/
+│   └── Counter.contract.ts # Example contract
+├── block-miner.worker.ts   # Mining worker thread
+├── config.ts               # Configuration
+├── utils.ts                # Helper functions
+└── index.ts                # Entry point
 ```
 
 ### Debug Logging
@@ -310,28 +515,36 @@ console.log(`Block valid: ${block.validate()}`);
 
 - **Block Mining Time**: ~1-10 seconds (difficulty 5, 10 threads)
 - **Transaction Throughput**: Limited by mining time
-- **Memory Usage**: O(n) where n = total transactions
+- **Contract Execution**: Gas-limited, depends on complexity
+- **Memory Usage**: O(n) where n = total transactions + contract state
 - **Validation Time**: O(n) where n = number of blocks
 
 ## Limitations
 
 - **Single Node**: No peer-to-peer networking
-- **No Persistence**: Blockchain lost on restart
-- **Limited Scalability**: All transactions in memory
+- **No Persistence**: Blockchain lost on restart (can be added)
+- **Limited Scalability**: All transactions and contracts in memory
 - **Fixed Block Size**: No transaction limit per block
-- **No Smart Contracts**: Simple value transfer only
+- **Simple Contracts**: JavaScript-based, not Turing-complete with safety guarantees
+- **No Contract Upgradeability**: Deployed contracts are immutable
+- **No Inter-Contract Calls**: Contracts cannot call other contracts (yet)
 
 ## Future Enhancements
 
 Potential additions for learning:
 
+- [ ] Payable contract functions (send value with calls)
+- [ ] ERC-20 style token contracts
+- [ ] View/Pure function optimization (free reads)
+- [ ] Inter-contract calls
+- [ ] Contract events and logs
 - [ ] Peer-to-peer networking
 - [ ] Blockchain persistence (file storage)
 - [ ] Dynamic difficulty adjustment
 - [ ] Transaction history queries
 - [ ] Mining statistics dashboard
 - [ ] NFT support
-- [ ] Smart contract system
+- [ ] Advanced smart contract patterns
 - [ ] Consensus algorithms (PoS, etc.)
 
 ## Educational Purpose
@@ -340,11 +553,13 @@ This project is designed for learning blockchain fundamentals:
 
 - ✅ Cryptographic concepts (hashing, signatures)
 - ✅ Consensus mechanisms (proof-of-work)
-- ✅ Economic incentives (mining, fees)
+- ✅ Economic incentives (mining, fees, deflation)
 - ✅ Data structures (Merkle trees, linked lists)
 - ✅ Distributed systems concepts
 - ✅ Transaction validation
 - ✅ Balance tracking without accounts
+- ✅ Smart contract execution and gas metering
+- ✅ State management and storage costs
 
 **Not for production use** - This is an educational implementation lacking many security features, optimizations, and hardening required for real cryptocurrency.
 

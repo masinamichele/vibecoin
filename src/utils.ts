@@ -13,9 +13,18 @@ export const restoreKey = (key: string, type: 'PUBLIC' | 'PRIVATE') => {
   return [`-----BEGIN ${type} KEY-----`, ...key.match(/.{1,64}/g), `-----END ${type} KEY-----`].join('\n');
 };
 
-const LogTags = <const>['main', 'chain', 'wallet', 'tx', 'block'];
+const LogTags = <const>['main', 'chain', 'wallet', 'tx', 'block', 'contract'];
 const getLogTag = (tag: (typeof LogTags)[number]) => {
   const longest = Math.max(...LogTags.map((t) => t.length));
   return `${config.LogTag}:${tag.padEnd(longest, ' ')}`;
 };
 export const getDebug = (tag: (typeof LogTags)[number]) => require('debug')(getLogTag(tag));
+
+export namespace ChainError {
+  export class OwnershipError extends Error {
+    override name = 'OwnershipError';
+  }
+  export class OutOfGasError extends Error {
+    override name = 'OutOfGasError';
+  }
+}
