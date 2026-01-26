@@ -3,7 +3,7 @@ import { Wallet } from './Wallet';
 import config from '../config';
 import { currency, getDebug, restoreKey } from '../utils';
 import assert from 'node:assert/strict';
-import { Contract } from './Contract';
+import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
 const debug = getDebug('tx');
 
@@ -16,19 +16,23 @@ export enum TransactionType {
   ContractCall = 'C',
 }
 
-type TransactionData<S extends object, F extends object> = {
+type TransactionData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
   from: Wallet;
   to: Wallet;
   amount: number;
   type?: TransactionType;
   fee?: number;
-  contract?: Contract<S, F>;
+  contract?: Contract<S, V, F>;
   functionName?: Exclude<keyof F, '__init__'>;
   functionArgs?: any[];
   gasLimit?: number;
 };
 
-export class Transaction<S extends object = any, F extends object = any> {
+export class Transaction<
+  S extends ContractStorage = any,
+  V extends ContractViews<S> = any,
+  F extends ContractFunctions<S, V> = any,
+> {
   readonly from: Wallet;
   readonly to: Wallet;
   readonly amount: number;
@@ -36,7 +40,7 @@ export class Transaction<S extends object = any, F extends object = any> {
   readonly timestamp: number;
   readonly fee: number;
   readonly type: TransactionType;
-  readonly contract?: Contract<S, F>;
+  readonly contract?: Contract<S, V, F>;
   readonly functionName?: Exclude<keyof F, '__init__'>;
   readonly functionArgs?: any[];
   readonly gasLimit?: number;
@@ -44,7 +48,7 @@ export class Transaction<S extends object = any, F extends object = any> {
   gasUsed: number = null;
   signature: string = null;
 
-  constructor(data: TransactionData<S, F>) {
+  constructor(data: TransactionData<S, V, F>) {
     this.type = data.type ?? TransactionType.Transaction;
     this.from = data.from;
     if (this.type === TransactionType.Transaction) {

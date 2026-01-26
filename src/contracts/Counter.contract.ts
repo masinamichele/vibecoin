@@ -8,6 +8,11 @@ export default {
       creator: owner,
       code: {
         storage: { count: 0, owner: null },
+        views: {
+          get() {
+            return this.storage.count;
+          },
+        },
         functions: {
           __init__() {
             this.storage.owner = this.msg.sender;
@@ -17,9 +22,6 @@ export default {
               throw new ChainError.OwnershipError('Only the owner can change the counter');
             }
             this.storage.count += amount;
-          },
-          get() {
-            return this.storage.count;
           },
         },
       },

@@ -29,7 +29,7 @@ export class Wallet {
 
   updateBalance(amount: number) {
     this.balance += amount;
-    const transactionSign = ['-', '+'][+(amount > 0)];
+    const transactionSign = ['-', '+'][+(amount >= 0)];
     debug(`Balance for ${this.name}: ${transactionSign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
   }
 

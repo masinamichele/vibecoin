@@ -6,32 +6,43 @@ import config from '../config';
 
 const debug = getDebug('contract');
 
-type Context<S> = {
-  storage: S;
-  msg: { sender: string };
-};
-
-type ContractData<S extends object, F extends object> = {
+type ContractData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
   name: string;
   creator: Wallet;
   code: {
     storage: S;
+    views: V;
     functions: F;
-    view?: (keyof F)[];
   };
 };
+
+type ViewContext<S extends ContractStorage> = { storage: S };
+type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = ViewContext<S> & {
+  get views(): V;
+  msg: { sender: string };
+};
+
+export type ContractStorage = Record<PropertyKey, any>;
+export type ContractViews<S extends ContractStorage> = Record<string, (this: ViewContext<S>, ...args: any[]) => any>;
+export type ContractFunctions<S extends ContractStorage, V extends ContractViews<S>> = Record<
+  string,
+  (this: FunctionContext<S, V>, ...args: any[]) => any
+>;
 
 type CallResult = { success: boolean; result: any; error?: Error; gasUsed: number };
 
 export class Contract<
-  Storage extends object = Record<PropertyKey, any>,
-  Functions extends object = Record<string, (this: Context<Storage>, ...args: any[]) => any>,
+  Storage extends ContractStorage,
+  Views extends ContractViews<Storage>,
+  Functions extends ContractFunctions<Storage, Views>,
 > {
   readonly name: string;
   readonly creator: Wallet;
   private readonly deployedAt: number;
   readonly address: string;
+
   private readonly storage: Storage;
+  readonly views: Views;
   private readonly functions: Functions;
 
   private initialized = false;
@@ -39,10 +50,11 @@ export class Contract<
   private gasUsed = 0;
   private gasLimit = 0;
 
-  constructor(data: ContractData<Storage, Functions>) {
+  constructor(data: ContractData<Storage, Views, Functions>) {
     this.name = data.name;
     this.creator = data.creator;
     this.storage = data.code.storage ?? ({} as Storage);
+    this.views = data.code.views ?? ({} as Views);
     this.functions = data.code.functions ?? ({} as Functions);
     this.deployedAt = Date.now();
     this.address = this.generateHash();
@@ -69,9 +81,12 @@ export class Contract<
   }
 
   getCodeSize() {
-    return Object.values(this.functions)
-      .map((func) => func.toString().length)
-      .reduce<number>((a, b) => a + b, 0);
+    const getObjectLength = <T extends object>(obj: T) =>
+      Object.values(obj)
+        .map((func) => func.toString().length)
+        .reduce<number>((a, b) => a + b, 0);
+
+    return getObjectLength(this.functions) + getObjectLength(this.views) + JSON.stringify(this.storage).length;
   }
 
   private getStorageProxy() {
@@ -86,6 +101,25 @@ export class Contract<
         return true;
       },
     });
+  }
+
+  private deepFreeze<T extends object>(obj: T): T {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
+    Object.keys(obj).forEach((key) => {
+      this.deepFreeze((<any>obj)[key]);
+    });
+    return Object.freeze(obj);
+  }
+
+  private getBoundViews() {
+    const viewsContext: ViewContext<Storage> = {
+      storage: this.deepFreeze(this.getSnapshot()),
+    };
+    return Object.fromEntries(
+      Object.entries(this.views).map(([name, func]) => [name, func.bind(viewsContext)]),
+    ) as Views;
   }
 
   getSnapshot() {
@@ -108,13 +142,19 @@ export class Contract<
       this.gasUsed = config.GasCostContractCall;
       this.gasLimit = gasLimit;
 
-      const context: Context<Storage> = {
+      const functionsContext: FunctionContext<Storage, Views> = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
+        views: new Proxy({} as Views, {
+          get: (_, key: string) => {
+            const boundViews = this.getBoundViews();
+            return boundViews[key];
+          },
+        }),
         msg: { sender: caller.address },
       };
       try {
         debug(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
-        const result = (<any>this.functions[name]).call(context, ...args);
+        const result = (<any>this.functions[name]).call(functionsContext, ...args);
         return {
           success: true,
           result,

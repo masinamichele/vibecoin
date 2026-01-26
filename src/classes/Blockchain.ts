@@ -4,7 +4,7 @@ import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
 import { getDebug } from '../utils';
-import { Contract } from './Contract';
+import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
 const debug = getDebug('chain');
 
@@ -72,7 +72,7 @@ export class Blockchain {
     debug(`Added block, total blocks: ${this.blocks.length}`);
   }
 
-  async deployContract(contract: Contract<any, any>) {
+  async deployContract(contract: Contract<any, any, any>) {
     assert(!this.contracts.has(contract.address), 'Contract already deployed');
 
     const codeSize = contract.getCodeSize();
@@ -168,26 +168,27 @@ export class Blockchain {
     return this.getTotalSupply() - this.getDrainedAmount();
   }
 
-  $<S extends object, F extends object>(
+  $<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>>(
     sender: Wallet,
-    contract: Contract<S, F>,
-    name: Exclude<keyof F, '__init__'>,
-    args?: any[],
-    gasLimit = config.DefaultGasLimit,
+    contract: Contract<S, V, F>,
   ) {
-    assert(this.contracts.has(contract.address), 'Contract is not deployed');
-    const callTransaction = new Transaction({
-      from: sender,
-      to: this.drain,
-      amount: 0,
-      type: TransactionType.ContractCall,
-      contract: contract as Contract<any, any>,
-      functionName: name,
-      functionArgs: args,
-      gasLimit: gasLimit,
-    });
+    return (name: Exclude<keyof F, '__init__'>, gasLimit = config.DefaultGasLimit) => {
+      return (...args: any[]) => {
+        assert(this.contracts.has(contract.address), 'Contract is not deployed');
+        const callTransaction = new Transaction({
+          from: sender,
+          to: this.drain,
+          amount: 0,
+          type: TransactionType.ContractCall,
+          contract: contract as Contract<any, any, any>,
+          functionName: name,
+          functionArgs: args,
+          gasLimit: gasLimit,
+        });
 
-    return this.addTransaction(callTransaction);
+        return this.addTransaction(callTransaction);
+      };
+    };
   }
 
   async minePendingTransactions(rewardWallet: Wallet) {
@@ -243,6 +244,12 @@ export class Blockchain {
       handledTransactions.push(transaction);
     }
     const handled = new Set(handledTransactions.map((tx) => tx.hash));
+
+    if (handledTransactions.length === 0) {
+      debug('No transactions to mine');
+      this.isMining = false;
+      return;
+    }
 
     debug(`Mining ${handled.size} transactions`);
 
