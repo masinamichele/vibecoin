@@ -398,7 +398,7 @@ const myContract = new Contract({
       setValue(newValue: number) {
         // Access control
         if (this.msg.sender !== this.storage.owner) {
-          throw new Error('Unauthorized');
+          throw new ChainError.OwnershipError('Unauthorized');
         }
         // State modification (costs gas)
         this.storage.value = newValue;
@@ -583,7 +583,6 @@ console.log(`Block valid: ${block.validate()}`);
 Potential additions for learning:
 
 - [ ] Payable contract functions (send value with calls)
-- [ ] View/Pure function optimization (free reads)
 - [ ] Inter-contract calls
 - [ ] Contract events and logs
 - [ ] Peer-to-peer networking
