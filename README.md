@@ -30,6 +30,7 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 ### Advanced Features
 
 - **Smart Contracts** - JavaScript-based smart contracts with full gas metering
+- **ERC-20 Style Tokens** - Fungible token standard with `transfer`, `approve`, and `allowance`
 - **Multi-threaded Mining** - Parallel nonce search using worker threads
 - **Gas System** - Complete gas tracking with storage read/write costs
 - **Configurable Parameters** - All blockchain parameters adjustable via config
@@ -76,6 +77,7 @@ Wallet
 
 Contract
 ├── Storage: Persistent state data
+├── Views: Read-only functions
 ├── Functions: Executable code
 ├── Gas Metering: Automatic usage tracking
 ├── Creator: Contract deployer
@@ -210,11 +212,52 @@ await chain.deployContract(counter);
 await chain.minePendingTransactions(miner);
 
 // Call contract function (costs gas)
-await chain.$(alice, counter, 'increment', [5]);
+await chain.$(alice, counter)('increment')(5);
 await chain.minePendingTransactions(miner);
 
 // Read contract state (off-chain, free)
-console.log(counter.getSnapshot()); // { count: 5, owner: '...' }
+console.log(counter.getReadonlyStorageSnapshot()); // { count: 5, owner: '...' }
+```
+
+### ERC-20 Style Token Example
+
+The project includes a contract helper for creating a fungible token.
+
+```typescript
+import TokenContract from './contracts/Token.contract';
+
+// 1. Create the token contract definition
+const MyToken = TokenContract.createContract(alice, {
+  name: 'MyToken',
+  symbol: 'MYT',
+  decimals: 8,
+  totalSupply: 1_000_000,
+});
+
+// 2. Deploy the contract
+await chain.deployContract(MyToken);
+await chain.minePendingTransactions(miner);
+
+// Alice now owns the total supply. Let's check her balance.
+// Views are read-only functions that don't cost gas for off-chain reads.
+console.log(MyToken.views.balanceOf(alice.address)); // 1,000,000
+
+// 3. Alice transfers tokens to Bob
+await chain.$(alice, MyToken)('transfer')(bob.address, 5000);
+await chain.minePendingTransactions(miner);
+console.log(MyToken.views.balanceOf(bob.address)); // 5000
+
+// 4. Bob approves Alice to spend his tokens
+await chain.$(bob, MyToken)('approve')(alice.address, 1000);
+await chain.minePendingTransactions(miner);
+console.log(MyToken.views.allowance(bob.address, alice.address)); // 1000
+
+// 5. Alice transfers tokens from Bob to the miner
+await chain.$(alice, MyToken)('transferFrom')(bob.address, miner.address, 500);
+await chain.minePendingTransactions(miner);
+
+console.log(MyToken.views.balanceOf(miner.address)); // 500
+console.log(MyToken.views.allowance(bob.address, alice.address)); // 500
 ```
 
 ### Auto-Mining Mechanism
@@ -337,7 +380,14 @@ const myContract = new Contract({
       owner: null,
     },
 
-    // Functions
+    // Read-only functions (free for off-chain reads)
+    views: {
+      getValue() {
+        return this.storage.value;
+      }
+    },
+
+    // State-modifying functions
     functions: {
       // Initialization (called once on deploy)
       __init__() {
@@ -352,11 +402,6 @@ const myContract = new Contract({
         }
         // State modification (costs gas)
         this.storage.value = newValue;
-      },
-
-      getValue() {
-        // State reading (costs gas when called on-chain)
-        return this.storage.value;
       },
     },
   },
@@ -387,7 +432,7 @@ await chain.minePendingTransactions(miner);
 
 ```typescript
 // Call function (costs gas)
-await chain.$(wallet, contract, 'setValue', [42], gasLimit);
+await chain.$(wallet, contract)('setValue', gasLimit)(42);
 await chain.minePendingTransactions(miner);
 
 // Gas fees go to the miner
@@ -396,8 +441,12 @@ await chain.minePendingTransactions(miner);
 ### Reading Contract State
 
 ```typescript
-// Off-chain read (free, instant)
-const state = contract.getSnapshot();
+// Off-chain read from a view is free and instant
+const value = myContract.views.getValue();
+console.log(value); // 42
+
+// Reading from storage directly is also possible off-chain
+const state = contract.getReadonlyStorageSnapshot();
 console.log(state); // { value: 42, owner: '0x...' }
 ```
 
@@ -406,8 +455,8 @@ console.log(state); // { value: 42, owner: '0x...' }
 Inside contract functions:
 
 - `this.storage` - Contract state (proxied for gas tracking)
+- `this.views` - Access to read-only view functions
 - `this.msg.sender` - Address of the caller
-- Throw errors to revert execution
 
 ### Error Handling
 
@@ -479,7 +528,7 @@ vibecoin/
 │   ├── Contract.ts         # Smart contract engine
 │   └── index.ts            # Exports
 ├── contracts/
-│   └── Counter.contract.ts # Example contract
+│   └── Token.contract.ts   # ERC-20 style token helper
 ├── block-miner.worker.ts   # Mining worker thread
 ├── config.ts               # Configuration
 ├── utils.ts                # Helper functions
@@ -534,7 +583,6 @@ console.log(`Block valid: ${block.validate()}`);
 Potential additions for learning:
 
 - [ ] Payable contract functions (send value with calls)
-- [ ] ERC-20 style token contracts
 - [ ] View/Pure function optimization (free reads)
 - [ ] Inter-contract calls
 - [ ] Contract events and logs
