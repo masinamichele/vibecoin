@@ -1,4 +1,5 @@
 import { Contract, Wallet } from '../classes';
+import { createContractCode } from '../classes/Contract';
 
 export default {
   createContract(
@@ -13,7 +14,7 @@ export default {
     return new Contract({
       name: options.name,
       creator: owner,
-      code: {
+      code: createContractCode({
         storage: {
           // name: options.name,
           // symbol: options.symbol,
@@ -31,7 +32,7 @@ export default {
         functions: {
           __init__() {
             this.storage.balances[this.msg.sender] = this.storage.totalSupply;
-            console.log('####################', this.views.balanceOf(this.msg.sender));
+            console.log('####################', this.views().balanceOf(this.msg.sender));
           },
           // balanceOf(address: string) {
           //   return this.storage.balances[address] ?? 0;
@@ -65,7 +66,7 @@ export default {
           //   return this.storage.allowances[owner]?.[spender] ?? 0;
           // },
         },
-      },
+      }),
     });
   },
 };

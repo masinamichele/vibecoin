@@ -17,8 +17,13 @@ type ContractData<S extends ContractStorage, V extends ContractViews<S>, F exten
 };
 
 type ViewContext<S extends ContractStorage> = { storage: S };
+
+type BoundViews<V extends ContractViews<any>> = {
+  [K in keyof V]: OmitThisParameter<V[K]>;
+};
+
 type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = ViewContext<S> & {
-  get views(): V;
+  views(): BoundViews<V>;
   msg: { sender: string };
 };
 
@@ -28,6 +33,14 @@ export type ContractFunctions<S extends ContractStorage, V extends ContractViews
   string,
   (this: FunctionContext<S, V>, ...args: any[]) => any
 >;
+
+export function createContractCode<S extends ContractStorage, V extends ContractViews<S>>(code: {
+  storage: S;
+  views: V;
+  functions: ContractFunctions<S, V>;
+}): typeof code {
+  return code;
+}
 
 type CallResult = { success: boolean; result: any; error?: Error; gasUsed: number };
 
@@ -113,13 +126,13 @@ export class Contract<
     return Object.freeze(obj);
   }
 
-  private getBoundViews() {
+  private getBoundViews(): BoundViews<Views> {
     const viewsContext: ViewContext<Storage> = {
       storage: this.deepFreeze(this.getSnapshot()),
     };
     return Object.fromEntries(
       Object.entries(this.views).map(([name, func]) => [name, func.bind(viewsContext)]),
-    ) as Views;
+    ) as BoundViews<Views>;
   }
 
   getSnapshot() {
@@ -144,12 +157,7 @@ export class Contract<
 
       const functionsContext: FunctionContext<Storage, Views> = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
-        views: new Proxy({} as Views, {
-          get: (_, key: string) => {
-            const boundViews = this.getBoundViews();
-            return boundViews[key];
-          },
-        }),
+        views: () => this.getBoundViews(),
         msg: { sender: caller.address },
       };
       try {
