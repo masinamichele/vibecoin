@@ -1,6 +1,7 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { cleanKey, currency, getDebug, restoreKey } from '../utils';
 import { Transaction } from './Transaction';
+import config from '../config';
 
 const debug = getDebug('wallet');
 
@@ -22,8 +23,8 @@ export class Wallet {
       publicKeyEncoding: { type: 'spki', format: 'pem' },
       privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
     });
-    this.key = Buffer.from(cleanKey(privateKey)).toString('hex');
-    this.address = Buffer.from(cleanKey(publicKey)).toString('hex');
+    this.key = Buffer.from(cleanKey(privateKey)).toString(config.AddressFormat);
+    this.address = Buffer.from(cleanKey(publicKey)).toString(config.AddressFormat);
     debug(`Created wallet '${this.name}'`);
   }
 
@@ -34,7 +35,7 @@ export class Wallet {
   }
 
   signTransaction(transaction: Transaction) {
-    const pem = restoreKey(Buffer.from(this.key, 'hex').toString('ascii'), 'PRIVATE');
+    const pem = restoreKey(Buffer.from(this.key, config.AddressFormat).toString('ascii'), 'PRIVATE');
     transaction.signature = sign('sha256', Buffer.from(transaction.hash), pem).toString('hex');
     debug('Transaction signed');
   }

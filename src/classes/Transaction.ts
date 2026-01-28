@@ -95,7 +95,7 @@ export class Transaction<
 
   verify() {
     try {
-      const pem = restoreKey(Buffer.from(this.from.address, 'hex').toString('ascii'), 'PUBLIC');
+      const pem = restoreKey(Buffer.from(this.from.address, config.AddressFormat).toString('ascii'), 'PUBLIC');
       const valid = verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
       if (valid) debug('Transaction verified');
       return valid;

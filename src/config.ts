@@ -29,4 +29,5 @@ export default {
   GasCostStorageWrite: 5_000,
   // Misc configuration
   LogTag: 'vibe',
+  AddressFormat: 'ascii' as BufferEncoding,
 };

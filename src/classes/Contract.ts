@@ -23,7 +23,7 @@ type BoundViews<V extends ContractViews<any>> = {
 };
 
 type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = ViewContext<S> & {
-  views(): BoundViews<V>;
+  get views(): BoundViews<V>;
   msg: { sender: string };
 };
 
@@ -55,8 +55,11 @@ export class Contract<
   readonly address: string;
 
   private readonly storage: Storage;
-  readonly views: Views;
+  private readonly _views: Views;
   private readonly functions: Functions;
+  get views() {
+    return this.getBoundViews();
+  }
 
   private initialized = false;
 
@@ -67,7 +70,7 @@ export class Contract<
     this.name = data.name;
     this.creator = data.creator;
     this.storage = data.code.storage ?? ({} as Storage);
-    this.views = data.code.views ?? ({} as Views);
+    this._views = data.code.views ?? ({} as Views);
     this.functions = data.code.functions ?? ({} as Functions);
     this.deployedAt = Date.now();
     this.address = this.generateHash();
@@ -99,7 +102,7 @@ export class Contract<
         .map((func) => func.toString().length)
         .reduce<number>((a, b) => a + b, 0);
 
-    return getObjectLength(this.functions) + getObjectLength(this.views) + JSON.stringify(this.storage).length;
+    return getObjectLength(this.functions) + getObjectLength(this._views) + JSON.stringify(this.storage).length;
   }
 
   private getStorageProxy() {
@@ -116,27 +119,33 @@ export class Contract<
     });
   }
 
-  private deepFreeze<T extends object>(obj: T): T {
-    if (obj === null || typeof obj !== 'object') {
-      return obj;
+  private deepFreeze<T extends object>(target: T): T {
+    if (target === null || typeof target !== 'object') {
+      return target;
     }
-    Object.keys(obj).forEach((key) => {
-      this.deepFreeze((<any>obj)[key]);
-    });
-    return Object.freeze(obj);
+    for (const key in target) {
+      if (Object.prototype.hasOwnProperty.call(target, key)) {
+        target[key] = this.deepFreeze(<any>target[key]);
+      }
+    }
+    const handler: ProxyHandler<any> = {
+      set: () => true,
+      deleteProperty: () => true,
+    };
+    return new Proxy(target, handler);
   }
 
   private getBoundViews(): BoundViews<Views> {
     const viewsContext: ViewContext<Storage> = {
-      storage: this.deepFreeze(this.getSnapshot()),
+      storage: this.getReadonlyStorageSnapshot(),
     };
     return Object.fromEntries(
-      Object.entries(this.views).map(([name, func]) => [name, func.bind(viewsContext)]),
+      Object.entries(this._views).map(([name, func]) => [name, func.bind(viewsContext)]),
     ) as BoundViews<Views>;
   }
 
-  getSnapshot() {
-    return structuredClone(this.storage);
+  getReadonlyStorageSnapshot() {
+    return this.deepFreeze(structuredClone(this.storage));
   }
 
   private call(caller: Wallet, gasLimit = config.DefaultGasLimit) {
@@ -155,11 +164,13 @@ export class Contract<
       this.gasUsed = config.GasCostContractCall;
       this.gasLimit = gasLimit;
 
-      const functionsContext: FunctionContext<Storage, Views> = {
+      const functionsContext = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
-        views: () => this.getBoundViews(),
         msg: { sender: caller.address },
-      };
+      } as FunctionContext<Storage, Views>;
+      Object.defineProperty(functionsContext, 'views', {
+        get: () => this.getBoundViews(),
+      });
       try {
         debug(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
         const result = (<any>this.functions[name]).call(functionsContext, ...args);
