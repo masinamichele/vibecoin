@@ -25,6 +25,9 @@ type BoundViews<V extends ContractViews<any>> = {
 type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = ViewContext<S> & {
   get views(): BoundViews<V>;
   msg: { sender: string; value: number };
+  creator: { address: string };
+  address: string;
+  env: { contractBalance: number; drain: Wallet };
 };
 
 export type ContractStorage = Record<PropertyKey, any>;
@@ -42,7 +45,11 @@ export function createContractCode<S extends ContractStorage, V extends Contract
   return code;
 }
 
-type CallResult = { success: boolean; result: any; error?: Error; gasUsed: number };
+type TransferRequest = {
+  to: Wallet;
+  amount: number;
+};
+type CallResult = { success: boolean; result: any; error?: Error; gasUsed: number; transfers?: TransferRequest[] };
 
 export class Contract<
   Storage extends ContractStorage,
@@ -148,7 +155,14 @@ export class Contract<
     return this.deepFreeze(structuredClone(this.storage));
   }
 
-  private call(caller: Wallet, { value = 0, gasLimit = config.DefaultGasLimit } = {}) {
+  private call(
+    caller: Wallet,
+    {
+      value = 0,
+      gasLimit = config.DefaultGasLimit,
+      env,
+    }: { value?: number; gasLimit?: number; env?: FunctionContext<any, any>['env'] } = {},
+  ) {
     return (name: Exclude<keyof Functions, '__init__'>, ...args: any[]): CallResult => {
       if (name === '__init__') {
         assert(caller.address === this.creator.address, 'Only the contract creator can call the __init__ function');
@@ -167,6 +181,9 @@ export class Contract<
       const functionsContext = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
         msg: { sender: caller.address, value },
+        creator: { address: this.creator.address },
+        address: this.address,
+        env,
       } as FunctionContext<Storage, Views>;
       Object.defineProperty(functionsContext, 'views', {
         get: () => this.getBoundViews(),
@@ -174,10 +191,16 @@ export class Contract<
       try {
         debug(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
         const result = (<any>this.functions[name]).call(functionsContext, ...args);
+        let transfers: TransferRequest[] = [];
+        if (result?.transfer) {
+          transfers.push(result.transfer);
+          delete result.transfer;
+        }
         return {
           success: true,
           result,
           gasUsed: this.gasUsed,
+          transfers,
         };
       } catch (error: any) {
         return {
@@ -185,6 +208,7 @@ export class Contract<
           result: null,
           gasUsed: error instanceof ChainError.OutOfGasError ? this.gasLimit : this.gasUsed,
           error: error,
+          transfers: [],
         };
       }
     };

@@ -3,7 +3,7 @@ import { Transaction, TransactionType } from './Transaction';
 import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
-import { getDebug } from '../utils';
+import { getDebug, Recipient } from '../utils';
 import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
 const debug = getDebug('chain');
@@ -102,7 +102,7 @@ export class Blockchain {
   }
 
   calculateTransactionFees(transaction: Transaction) {
-    if (transaction.type != TransactionType.Transaction) return 0;
+    if (transaction.type !== TransactionType.Transaction) return 0;
     return config.FixedTransactionFee + transaction.amount * transaction.fee;
   }
 
@@ -130,16 +130,18 @@ export class Blockchain {
     }
   }
 
-  getBalance(wallet: Wallet) {
+  getBalance(recipient: Recipient) {
     let balance = 0;
     for (const block of this.blocks) {
       for (const transaction of block.data) {
-        if (transaction.type === TransactionType.Transaction) {
-          if (transaction.from.address === wallet.address) {
-            balance -= this.getTotalTransactionAmount(transaction);
+        if (transaction.from?.address === recipient.address) {
+          balance -= this.getTotalTransactionAmount(transaction);
+          if (transaction.type === TransactionType.ContractCall) {
+            const gasCost = (transaction.gasUsed ?? 0) * config.GasPrice;
+            balance -= gasCost;
           }
         }
-        if (transaction.to.address === wallet.address) {
+        if (transaction.to.address === recipient.address) {
           balance += transaction.amount;
         }
       }
@@ -172,13 +174,13 @@ export class Blockchain {
     sender: Wallet,
     contract: Contract<S, V, F>,
   ) {
-    return (name: Exclude<keyof F, '__init__'>, gasLimit = config.DefaultGasLimit) => {
+    return (name: Exclude<keyof F, '__init__'>, { value = 0, gasLimit = config.DefaultGasLimit } = {}) => {
       return (...args: any[]) => {
         assert(this.contracts.has(contract.address), 'Contract is not deployed');
         const callTransaction = new Transaction({
           from: sender,
-          to: this.drain,
-          amount: 0,
+          to: contract,
+          amount: value,
           type: TransactionType.ContractCall,
           contract: contract as Contract<any, any, any>,
           functionName: name,
@@ -261,6 +263,8 @@ export class Blockchain {
       type: TransactionType.Reward,
     });
 
+    const internalTransactions: Transaction[] = [];
+
     for (const tx of handledTransactions) {
       if (tx.type === TransactionType.ContractDeploy) {
         this.contracts.add(tx.contract.address);
@@ -269,11 +273,37 @@ export class Blockchain {
       }
 
       if (tx.type === TransactionType.ContractCall) {
+        const contractBalance = runningBalances[tx.to.address] ?? this.getBalance(tx.to);
         //@ts-expect-error
-        const result = tx.contract.call(tx.from, tx.gasLimit)(tx.functionName, ...tx.functionArgs);
+        const result = tx.contract.call(tx.from, {
+          value: tx.amount,
+          gasLimit: tx.gasLimit,
+          env: { contractBalance, drain: this.drain },
+        })(tx.functionName, ...tx.functionArgs);
         tx.gasUsed = result.gasUsed;
         const gasCost = result.gasUsed * config.GasPrice;
-        tx.from.updateBalance(-gasCost);
+        if (tx.from instanceof Wallet) {
+          tx.from.updateBalance(-gasCost);
+        }
+
+        if (result.success) {
+          const contractBalance = runningBalances[tx.to.address] ?? this.getBalance(tx.to);
+          const totalWithdrawalAmount = result.transfers.reduce((acc, val) => acc + val.amount, 0);
+          if (totalWithdrawalAmount > contractBalance) {
+            debug(`! Withdrawal failed for ${tx.contract.name}: insufficient funds`);
+          } else {
+            for (const transfer of result.transfers) {
+              const withdrawalTx = new Transaction({
+                type: TransactionType.Withdrawal,
+                from: tx.to,
+                to: transfer.to,
+                amount: transfer.amount,
+              });
+              internalTransactions.push(withdrawalTx);
+            }
+          }
+        }
+
         if (!result.success) {
           debug(`! ${result.error.name} in ${tx.contract.name}.${<string>tx.functionName}: ${result.error.message}`);
         }
@@ -292,7 +322,7 @@ export class Blockchain {
     });
 
     const block = new Block({
-      data: [rewardTransaction, feesTransaction, ...handledTransactions],
+      data: [rewardTransaction, feesTransaction, ...handledTransactions, ...internalTransactions],
       previousHash: this.getLatestBlock().hash,
     });
 
@@ -301,8 +331,12 @@ export class Blockchain {
     rewardWallet.updateBalance(rewardAmount);
     rewardWallet.updateBalance(feesAmount);
     for (const tx of handledTransactions) {
-      tx.from.updateBalance(this.getTotalTransactionAmount(tx) * -1);
-      tx.to.updateBalance(tx.amount);
+      if (tx.from instanceof Wallet) {
+        tx.from.updateBalance(this.getTotalTransactionAmount(tx) * -1);
+      }
+      if (tx.to instanceof Wallet) {
+        tx.to.updateBalance(tx.amount);
+      }
     }
 
     this.pendingTransactionPool = this.pendingTransactionPool.filter((tx) => !handled.has(tx.hash));

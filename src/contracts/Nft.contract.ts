@@ -9,6 +9,8 @@ export default {
     options: {
       name: string;
       symbol: string;
+      mintPrice: number;
+      beneficiary: Wallet;
     },
   ) {
     return new Contract({
@@ -18,6 +20,8 @@ export default {
         storage: {
           name: options.name,
           symbol: options.symbol,
+          mintPrice: options.mintPrice,
+          beneficiary: options.beneficiary,
           totalSupply: 0,
           tokenOwner: {} as Record<TokenId, Address>,
           tokenData: {} as Record<TokenId, TokenData>,
@@ -64,10 +68,17 @@ export default {
             if (this.storage.tokenOwner[tokenId]) {
               throw new ChainError.DuplicatedTokenError('Token already minted');
             }
+            if (this.msg.value < this.storage.mintPrice) {
+              throw new ChainError.InsufficientFundsError('Insufficient funds');
+            }
             this.storage.tokenOwner[tokenId] = to;
             this.storage.tokenData[tokenId] = data;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
             this.storage.totalSupply++;
+
+            const isSenderBeneficiary = this.msg.sender === this.storage.beneficiary.address;
+            const feeRecipient = isSenderBeneficiary ? this.env.drain : this.storage.beneficiary;
+            return { transfer: { to: feeRecipient, amount: this.msg.value } };
           },
           transferFrom(from: string, to: string, tokenId: string) {
             const owner = this.views.ownerOf(tokenId);

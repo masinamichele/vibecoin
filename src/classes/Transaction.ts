@@ -1,7 +1,7 @@
 import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
-import { currency, getDebug, restoreKey } from '../utils';
+import { currency, getDebug, Recipient, restoreKey } from '../utils';
 import assert from 'node:assert/strict';
 import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
@@ -14,11 +14,12 @@ export enum TransactionType {
   Fees = 'F',
   ContractDeploy = 'D',
   ContractCall = 'C',
+  Withdrawal = 'W',
 }
 
 type TransactionData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
-  from: Wallet;
-  to: Wallet;
+  from: Recipient;
+  to: Recipient;
   amount: number;
   type?: TransactionType;
   fee?: number;
@@ -33,8 +34,8 @@ export class Transaction<
   V extends ContractViews<S> = any,
   F extends ContractFunctions<S, V> = any,
 > {
-  readonly from: Wallet;
-  readonly to: Wallet;
+  readonly from: Recipient;
+  readonly to: Recipient;
   readonly amount: number;
   readonly hash: string;
   readonly timestamp: number;
@@ -82,8 +83,10 @@ export class Transaction<
       debug(`Fixed transaction fee: ${currency(config.FixedTransactionFee)}`);
       debug(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
       debug(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
-      this.from.signTransaction(this);
-    } else {
+      if (this.from instanceof Wallet) {
+        this.from.signTransaction(this);
+      }
+    } else if (this.type === TransactionType.Genesis) {
       debug(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);
     }
   }

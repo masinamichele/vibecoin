@@ -32,12 +32,13 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 ### Advanced Features
 
 - **Smart Contracts** - JavaScript-based smart contracts with full gas metering
+- **Payable Functions** - Contracts can receive and manage the native currency (VIBE).
 - **ERC-20 Style Tokens** - Fungible token standard with `transfer`, `approve`, and `allowance`
-- **NFTs (ERC-721 Style)** - Non-fungible token standard for unique, textual assets
+- **NFTs (ERC-721 Style)** - Non-fungible token standard for unique, textual assets with payable minting.
 - **Multithreaded Mining** - Parallel nonce search using worker threads
 - **Gas System** - Complete gas tracking with storage read/write costs
 - **Configurable Parameters** - All blockchain parameters adjustable via config
-- **Transaction Types** - Genesis, Transaction, Reward, Fee, Contract Deploy, and Contract Call
+- **Transaction Types** - Genesis, Transaction, Reward, Fee, Contract Deploy, Contract Call, and Withdrawal.
 - **Auto-Mine Delay** - Grace period for voluntary miners before auto-mining triggers
 - **Deflationary Mechanics** - Deploy fees and unused mining rewards burned permanently
 
@@ -63,7 +64,7 @@ Blockchain
 └── Auto-mine: Threshold-based mining
 
 Transaction
-├── From/To: Wallet addresses
+├── From/To: Wallet or Contract
 ├── Amount: Transfer value
 ├── Fee: Transaction cost
 ├── Signature: ECDSA signature
@@ -267,9 +268,9 @@ console.log(MyToken.views.balanceOf(miner.address)); // 500
 console.log(MyToken.views.allowance(bob.address, alice.address)); // 500
 ```
 
-### NFT (ERC-721) Example
+### NFT (ERC-721) Example with Payable Mint
 
-This example shows how to create and manage unique, textual NFTs.
+This example shows how to create and manage unique, textual NFTs with a minting fee.
 
 ```typescript
 import NftContract from './contracts/Nft.contract';
@@ -284,7 +285,7 @@ await chain.minePendingTransactions(eve);
 console.log(`NFT Collection "${myNfts.views.name()}" deployed!`);
 
 // 2. Mint the first NFT to Alice
-await chain.$(alice, myNfts)('mint')(alice.address, 'nft-001', 'Hello, this is my first NFT!');
+await chain.$(alice, myNfts)('mint', { value: 10 })(alice.address, 'nft-001', 'Hello, this is my first NFT!');
 await chain.minePendingTransactions(eve);
 console.log(`Alice's NFT balance: ${myNfts.views.balanceOf(alice.address)}`);
 console.log(`Owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
@@ -382,16 +383,11 @@ Transfer 100 VIBE
 - **Gas Price**: 0.000001 VIBE per gas unit
 - Gas costs go to the miner as fees
 
-Example:
+**NFT Minting:**
 
-```
-Contract call with 2 reads and 1 write:
-├── Base: 21,000 gas
-├── Reads: 400 gas (2 × 200)
-├── Writes: 5,000 gas (1 × 5,000)
-├── Total: 26,400 gas
-└── Cost: 0.0264 VIBE (26,400 × 0.000001)
-```
+- **Mint Price**: A configurable price set on a per-collection basis.
+- **Fee Forwarding**: The `mint` function is payable and automatically forwards the received VIBE to a designated `beneficiary` wallet.
+- **Beneficiary Rule**: If the collection's beneficiary mints an NFT, the fee is sent to the `drain` address instead, ensuring a real economic cost and preventing exploits.
 
 ### Mining Rewards
 
@@ -409,7 +405,8 @@ When pending pool reaches threshold:
 2. **Auto-Mining**: If no miner acts, block is mined automatically
 3. **Burn**: Rewards and fees sent to drain address (removed from circulation)
 4. **Contract Deploy Fees**: Always burned, never go to miners
-5. **Effect**: Reduces total supply, increases scarcity
+5. **Beneficiary Mint Fees**: Fees from a collection's beneficiary minting their own NFTs are burned.
+6. **Effect**: Reduces total supply, increases scarcity
 
 ## Smart Contracts
 
@@ -589,7 +586,6 @@ vibecoin/
 
 Potential additions for learning:
 
-- [ ] Payable contract functions (send value with calls)
 - [ ] Inter-contract calls
 - [ ] Contract events and logs
 - [ ] Peer-to-peer networking

@@ -1,4 +1,5 @@
 import config from './config';
+import type { Contract, Wallet } from './classes';
 
 export const currency = (amount: number) => {
   const nf = new Intl.NumberFormat('en-US', {
@@ -20,6 +21,8 @@ const getLogTag = (tag: (typeof LogTags)[number]) => {
 };
 export const getDebug = (tag: (typeof LogTags)[number]) => require('debug')(getLogTag(tag));
 
+export type Recipient = Wallet | Contract<any, any, any>;
+
 export type Address = string;
 export type Amount = number;
 export type TokenId = string;
@@ -40,5 +43,8 @@ export namespace ChainError {
   }
   export class MissingDataError extends Error {
     override name = 'MissingDataError';
+  }
+  export class InsufficientFundsError extends Error {
+    override name = 'InsufficientFundsError';
   }
 }

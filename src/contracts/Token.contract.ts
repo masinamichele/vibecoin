@@ -1,6 +1,6 @@
 import { Contract, Wallet } from '../classes';
 import { createContractCode } from '../classes/Contract';
-import { Address, Amount } from '../utils';
+import { Address, Amount, ChainError } from '../utils';
 
 // Standard ERC-20 Contract
 export default {
@@ -38,19 +38,27 @@ export default {
             this.storage.balances[this.msg.sender] = this.storage.totalSupply;
           },
           transfer(to: string, amount: number) {
-            if (amount <= 0) throw new RangeError('Amount must be greater than 0');
-            if (this.views.balanceOf(this.msg.sender) < amount) throw new RangeError('Insufficient funds');
+            if (amount <= 0) {
+              throw new ChainError.MissingDataError('Amount must be greater than 0');
+            }
+            if (this.views.balanceOf(this.msg.sender) < amount) {
+              throw new ChainError.InsufficientFundsError('Insufficient funds');
+            }
             this.storage.balances[this.msg.sender] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;
             return true;
           },
           transferFrom(from: string, to: string, amount: number) {
-            if (amount <= 0) throw new RangeError('Amount must be greater than 0');
+            if (amount <= 0) {
+              throw new ChainError.MissingDataError('Amount must be greater than 0');
+            }
 
             const allowance = this.views.allowance(from, this.msg.sender);
-            if (allowance < amount) throw new RangeError('Insufficient allowance');
+            if (allowance < amount) throw new ChainError.InsufficientFundsError('Insufficient allowance');
 
-            if (this.views.balanceOf(from) < amount) throw new RangeError('Insufficient funds');
+            if (this.views.balanceOf(from) < amount) {
+              throw new ChainError.InsufficientFundsError('Insufficient funds');
+            }
             this.storage.balances[from] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;
             this.storage.allowances[from][this.msg.sender] -= amount;

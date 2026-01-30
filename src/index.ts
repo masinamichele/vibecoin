@@ -49,11 +49,13 @@ console.log();
   const nft = Nft.createContract(alice, {
     name: 'VibeNFT',
     symbol: 'VTX',
+    mintPrice: 10,
+    beneficiary: charlie,
   });
   await chain.deployContract(nft);
   await chain.minePendingTransactions(eve);
 
-  await chain.$(alice, nft)('mint')(alice.address, 'nft-001', 'Hello, World!');
+  await chain.$(alice, nft)('mint', { value: 10 })(alice.address, 'nft-001', 'Hello, World!');
   await chain.$(alice, nft)('approve')(bob.address, 'nft-001');
   await chain.$(bob, nft)('transferFrom')(alice.address, charlie.address, 'nft-001');
   await chain.$(charlie, nft)('setApprovalForAll')(alice.address, true);
