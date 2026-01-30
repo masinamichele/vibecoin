@@ -3,8 +3,8 @@ import type { Contract, Wallet } from './classes';
 
 export const currency = (amount: number) => {
   const nf = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 10,
-    maximumFractionDigits: 10,
+    minimumFractionDigits: config.Decimals,
+    maximumFractionDigits: config.Decimals,
   });
   return `${config.CurrencySymbol}${nf.format(amount)}`;
 };

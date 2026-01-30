@@ -3,6 +3,7 @@ export default {
   CurrencyName: 'Vibecoin',
   CurrencyCode: 'VIBE',
   CurrencySymbol: 'Ꝟ',
+  Decimals: 10,
   // Wallet configuration
   FaucetName: 'Ꝟibe',
   DrainName: 'Ꝟoid',

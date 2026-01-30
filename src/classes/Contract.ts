@@ -142,7 +142,7 @@ export class Contract<
     return new Proxy(target, handler);
   }
 
-  private getBoundViews(): BoundViews<Views> {
+  private getBoundViews() {
     const viewsContext: ViewContext<Storage> = {
       storage: this.getReadonlyStorageSnapshot(),
     };
@@ -161,7 +161,7 @@ export class Contract<
       value = 0,
       gasLimit = config.DefaultGasLimit,
       env,
-    }: { value?: number; gasLimit?: number; env?: FunctionContext<any, any>['env'] } = {},
+    }: { value?: number; gasLimit?: number; env?: FunctionContext<Storage, Views>['env'] } = {},
   ) {
     return (name: Exclude<keyof Functions, '__init__'>, ...args: any[]): CallResult => {
       if (name === '__init__') {
@@ -178,19 +178,19 @@ export class Contract<
       this.gasUsed = config.GasCostContractCall;
       this.gasLimit = gasLimit;
 
-      const functionsContext = {
+      const functionsContext: Omit<FunctionContext<Storage, Views>, 'views'> = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
         msg: { sender: caller.address, value },
         creator: { address: this.creator.address },
         address: this.address,
         env,
-      } as FunctionContext<Storage, Views>;
+      };
       Object.defineProperty(functionsContext, 'views', {
         get: () => this.getBoundViews(),
       });
       try {
         debug(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
-        const result = (<any>this.functions[name]).call(functionsContext, ...args);
+        const result = (<any>this.functions[name]).call(functionsContext as FunctionContext<Storage, Views>, ...args);
         let transfers: TransferRequest[] = [];
         if (result?.transfer) {
           transfers.push(result.transfer);
