@@ -2,6 +2,7 @@ import { Blockchain, Transaction, Wallet } from './classes';
 import config from './config';
 import { currency, getDebug } from './utils';
 import Token from './contracts/Token.contract';
+import Nft from './contracts/Nft.contract';
 
 const debug = getDebug('main');
 
@@ -26,13 +27,14 @@ console.log();
   await chain.addTransaction(t3);
   await chain.minePendingTransactions(eve);
 
+  // ERC-20
+
   const vibeToken = Token.createContract(alice, {
     name: 'VibeToken',
     symbol: 'VTK',
     decimals: 10,
     totalSupply: 500,
   });
-
   await chain.deployContract(vibeToken);
   await chain.minePendingTransactions(eve);
 
@@ -41,6 +43,23 @@ console.log();
   await chain.$(charlie, vibeToken)('transferFrom')(bob.address, alice.address, 5);
   await chain.minePendingTransactions(eve);
   console.log(vibeToken.getReadonlyStorageSnapshot());
+
+  // ERC-721
+
+  const nft = Nft.createContract(alice, {
+    name: 'VibeNFT',
+    symbol: 'VTX',
+  });
+  await chain.deployContract(nft);
+  await chain.minePendingTransactions(eve);
+
+  await chain.$(alice, nft)('mint')(alice.address, 'nft-001', 'Hello, World!');
+  await chain.$(alice, nft)('approve')(bob.address, 'nft-001');
+  await chain.$(bob, nft)('transferFrom')(alice.address, charlie.address, 'nft-001');
+  await chain.$(charlie, nft)('setApprovalForAll')(alice.address, true);
+  await chain.$(alice, nft)('transferFrom')(charlie.address, bob.address, 'nft-001');
+  await chain.minePendingTransactions(eve);
+  console.log(nft.getReadonlyStorageSnapshot());
 
   debug(`Total: ${currency(chain.getTotalSupply())}`);
   debug(`Available: ${currency(chain.getBalance(chain.faucet))}`);

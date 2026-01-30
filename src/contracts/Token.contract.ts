@@ -1,6 +1,8 @@
 import { Contract, Wallet } from '../classes';
 import { createContractCode } from '../classes/Contract';
+import { Address, Amount } from '../utils';
 
+// Standard ERC-20 Contract
 export default {
   createContract(
     owner: Wallet,
@@ -20,8 +22,8 @@ export default {
           symbol: options.symbol,
           decimals: options.decimals,
           totalSupply: options.totalSupply,
-          balances: {} as Record<string, number>,
-          allowances: {} as Record<string, Record<string, number>>,
+          balances: {} as Record<Address, Amount>,
+          allowances: {} as Record<Address, Record<Address, Amount>>,
         },
         views: {
           balanceOf(address: string) {

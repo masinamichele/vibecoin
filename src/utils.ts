@@ -20,11 +20,25 @@ const getLogTag = (tag: (typeof LogTags)[number]) => {
 };
 export const getDebug = (tag: (typeof LogTags)[number]) => require('debug')(getLogTag(tag));
 
+export type Address = string;
+export type Amount = number;
+export type TokenId = string;
+export type TokenData = string;
+
 export namespace ChainError {
   export class OwnershipError extends Error {
     override name = 'OwnershipError';
   }
   export class OutOfGasError extends Error {
     override name = 'OutOfGasError';
+  }
+  export class DuplicatedTokenError extends Error {
+    override name = 'DuplicatedTokenError';
+  }
+  export class NonExistentTokenError extends Error {
+    override name = 'NonExistentTokenError';
+  }
+  export class MissingDataError extends Error {
+    override name = 'MissingDataError';
   }
 }

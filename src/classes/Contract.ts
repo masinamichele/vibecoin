@@ -24,7 +24,7 @@ type BoundViews<V extends ContractViews<any>> = {
 
 type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = ViewContext<S> & {
   get views(): BoundViews<V>;
-  msg: { sender: string };
+  msg: { sender: string; value: number };
 };
 
 export type ContractStorage = Record<PropertyKey, any>;
@@ -148,7 +148,7 @@ export class Contract<
     return this.deepFreeze(structuredClone(this.storage));
   }
 
-  private call(caller: Wallet, gasLimit = config.DefaultGasLimit) {
+  private call(caller: Wallet, { value = 0, gasLimit = config.DefaultGasLimit } = {}) {
     return (name: Exclude<keyof Functions, '__init__'>, ...args: any[]): CallResult => {
       if (name === '__init__') {
         assert(caller.address === this.creator.address, 'Only the contract creator can call the __init__ function');
@@ -166,7 +166,7 @@ export class Contract<
 
       const functionsContext = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
-        msg: { sender: caller.address },
+        msg: { sender: caller.address, value },
       } as FunctionContext<Storage, Views>;
       Object.defineProperty(functionsContext, 'views', {
         get: () => this.getBoundViews(),

@@ -4,7 +4,6 @@
 
 A fully functional blockchain and cryptocurrency implementation built with Node.js and TypeScript for educational purposes. This project demonstrates core blockchain concepts including proof-of-work mining, cryptographic signatures, Merkle trees, and economic incentive mechanisms.
 
-
 ## Features
 
 ### Core Blockchain Functionality
@@ -34,6 +33,7 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 
 - **Smart Contracts** - JavaScript-based smart contracts with full gas metering
 - **ERC-20 Style Tokens** - Fungible token standard with `transfer`, `approve`, and `allowance`
+- **NFTs (ERC-721 Style)** - Non-fungible token standard for unique, textual assets
 - **Multithreaded Mining** - Parallel nonce search using worker threads
 - **Gas System** - Complete gas tracking with storage read/write costs
 - **Configurable Parameters** - All blockchain parameters adjustable via config
@@ -267,6 +267,47 @@ console.log(MyToken.views.balanceOf(miner.address)); // 500
 console.log(MyToken.views.allowance(bob.address, alice.address)); // 500
 ```
 
+### NFT (ERC-721) Example
+
+This example shows how to create and manage unique, textual NFTs.
+
+```typescript
+import NftContract from './contracts/Nft.contract';
+
+// 1. Create and deploy the NFT Collection
+const myNfts = NftContract.createContract(alice, {
+  name: 'My Textual NFTs',
+  symbol: 'MTN',
+});
+await chain.deployContract(myNfts);
+await chain.minePendingTransactions(eve);
+console.log(`NFT Collection "${myNfts.views.name()}" deployed!`);
+
+// 2. Mint the first NFT to Alice
+await chain.$(alice, myNfts)('mint')(alice.address, 'nft-001', 'Hello, this is my first NFT!');
+await chain.minePendingTransactions(eve);
+console.log(`Alice's NFT balance: ${myNfts.views.balanceOf(alice.address)}`);
+console.log(`Owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
+
+// 3. Alice approves Bob to transfer nft-001
+await chain.$(alice, myNfts)('approve')(bob.address, 'nft-001');
+await chain.minePendingTransactions(eve);
+
+// 4. Bob transfers the NFT from Alice to Charlie
+await chain.$(bob, myNfts)('transferFrom')(alice.address, charlie.address, 'nft-001');
+await chain.minePendingTransactions(eve);
+console.log(`New owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
+
+// 5. Charlie approves Alice as an operator for all his assets
+await chain.$(charlie, myNfts)('setApprovalForAll')(alice.address, true);
+await chain.minePendingTransactions(eve);
+
+// 6. Alice, as an operator, transfers the NFT back to Bob
+await chain.$(alice, myNfts)('transferFrom')(charlie.address, bob.address, 'nft-001');
+await chain.minePendingTransactions(eve);
+console.log(`Final owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
+```
+
 ### Auto-Mining Mechanism
 
 ```typescript
@@ -381,33 +422,16 @@ const myContract = new Contract({
   name: 'MyContract',
   creator: ownerWallet,
   code: createContractCode({
-    // Initial state
-    storage: {
-      value: 0,
-      owner: null,
-    },
-
-    // Read-only functions (free for off-chain reads)
+    storage: { value: 0, owner: null },
     views: {
-      getValue() {
-        return this.storage.value;
-      },
+      getValue() { return this.storage.value; }
     },
 
     // State-modifying functions
     functions: {
-      // Initialization (called once on deploy)
-      __init__() {
-        this.storage.owner = this.msg.sender;
-      },
-
-      // Public functions
-      setValue(newValue: number) {
-        // Access control
-        if (this.msg.sender !== this.storage.owner) {
-          throw new Error('Unauthorized');
-        }
-        // State modification (costs gas)
+      __init__() { this.storage.owner = this.msg.sender; },
+      setValue(newValue) {
+        if (this.msg.sender !== this.storage.owner) throw new Error('Unauthorized');
         this.storage.value = newValue;
       },
     },
@@ -528,43 +552,19 @@ Transactions organized in binary hash tree:
 ```
 vibecoin/
 ├── classes/
-│   ├── Block.ts            # Block implementation
-│   ├── Blockchain.ts       # Main blockchain logic
-│   ├── Transaction.ts      # Transaction handling
-│   ├── Wallet.ts           # Wallet management
-│   ├── Contract.ts         # Smart contract engine
-│   └── index.ts            # Exports
+│   ├── Block.ts
+│   ├── Blockchain.ts
+│   ├── Transaction.ts
+│   ├── Wallet.ts
+│   ├── Contract.ts
+│   └── index.ts
 ├── contracts/
-│   └── Token.contract.ts   # ERC-20 style token helper
-├── block-miner.worker.ts   # Mining worker thread
-├── config.ts               # Configuration
-├── utils.ts                # Helper functions
-└── index.ts                # Entry point
-```
-
-### Debug Logging
-
-Enable debug output:
-
-```bash
-# All logs
-DEBUG=vibe:* npm start
-
-# Specific components
-DEBUG=vibe:chain npm start
-DEBUG=vibe:block,vibe:tx npm start
-```
-
-### Testing
-
-```typescript
-// Validate blockchain integrity
-const isValid = chain.validateIntegrity();
-console.log(`Blockchain valid: ${isValid}`);
-
-// Check specific block
-const block = chain.blocks[1];
-console.log(`Block valid: ${block.validate()}`);
+│   ├── Token.contract.ts   # ERC-20 style token helper
+│   └── Nft.contract.ts     # ERC-721 style NFT helper
+├── block-miner.worker.ts
+├── config.ts
+├── utils.ts
+└── index.ts
 ```
 
 ## Performance
