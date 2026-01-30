@@ -3,18 +3,19 @@ import { Wallet } from './Wallet';
 import config from '../config';
 import { currency, getDebug, Recipient, restoreKey } from '../utils';
 import assert from 'node:assert/strict';
-import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
+import { type CallResult, Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
 const debug = getDebug('tx');
 
 export enum TransactionType {
-  Genesis = 'G',
+  Genesis = '_',
   Transaction = 'T',
   Reward = 'R',
   Fees = 'F',
   ContractDeploy = 'D',
   ContractCall = 'C',
   Withdrawal = 'W',
+  GasOnly = 'G',
 }
 
 type TransactionData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
@@ -40,13 +41,15 @@ export class Transaction<
   readonly hash: string;
   readonly timestamp: number;
   readonly fee: number;
-  readonly type: TransactionType;
+  type: TransactionType;
   readonly contract?: Contract<S, V, F>;
   readonly functionName?: Exclude<keyof F, '__init__'>;
   readonly functionArgs?: any[];
   readonly gasLimit?: number;
 
   gasUsed: number = null;
+  callResult: CallResult = null;
+
   signature: string = null;
 
   constructor(data: TransactionData<S, V, F>) {

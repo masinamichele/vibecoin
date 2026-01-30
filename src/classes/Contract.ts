@@ -49,7 +49,13 @@ type TransferRequest = {
   to: Wallet;
   amount: number;
 };
-type CallResult = { success: boolean; result: any; error?: Error; gasUsed: number; transfers?: TransferRequest[] };
+export type CallResult = {
+  success: boolean;
+  result: any;
+  error?: Error;
+  gasUsed: number;
+  transfers?: TransferRequest[];
+};
 
 export class Contract<
   Storage extends ContractStorage,
@@ -61,7 +67,8 @@ export class Contract<
   private readonly deployedAt: number;
   readonly address: string;
 
-  private readonly storage: Storage;
+  private storage: Storage;
+  private storageSnapshot: Storage = null;
   private readonly _views: Views;
   private readonly functions: Functions;
   get views() {
@@ -142,6 +149,16 @@ export class Contract<
     return new Proxy(target, handler);
   }
 
+  takeStateSnapshot() {
+    this.storageSnapshot = structuredClone(this.storage);
+  }
+
+  revert() {
+    if (this.storageSnapshot) {
+      this.storage = structuredClone(this.storageSnapshot);
+    }
+  }
+
   private getBoundViews() {
     const viewsContext: ViewContext<Storage> = {
       storage: this.getReadonlyStorageSnapshot(),
@@ -156,7 +173,7 @@ export class Contract<
   }
 
   private call(
-    caller: Wallet,
+    caller: { address: string; name: string },
     {
       value = 0,
       gasLimit = config.DefaultGasLimit,
