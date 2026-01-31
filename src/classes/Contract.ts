@@ -201,7 +201,7 @@ export class Contract<
       this.gasLimit = gasLimit;
 
       const functionsContext: Omit<FunctionContext<Storage, Views>, 'views'> = {
-        storage: name === '__init__' ? this.storage : this.getStorageProxy(),
+        storage: name === '__init__' ? this.storage : this.deepProxy(this.storage),
         msg: { sender: caller.address, value },
         creator: { address: this.creator.address },
         address: this.address,
