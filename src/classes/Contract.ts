@@ -119,8 +119,16 @@ export class Contract<
     return getObjectLength(this.functions) + getObjectLength(this._views) + JSON.stringify(this.storage).length;
   }
 
-  private getStorageProxy() {
-    return new Proxy(this.storage, {
+  private deepProxy<T extends object>(target: T): T {
+    if (target === null || typeof target !== 'object') {
+      return target;
+    }
+    for (const key in target) {
+      if (Object.prototype.hasOwnProperty.call(target, key)) {
+        target[key] = this.deepProxy(<any>target[key]);
+      }
+    }
+    return new Proxy(target, {
       get: (target, prop) => {
         this.useGas(config.GasCostStorageRead);
         return target[prop as keyof typeof target];
@@ -142,11 +150,10 @@ export class Contract<
         target[key] = this.deepFreeze(<any>target[key]);
       }
     }
-    const handler: ProxyHandler<any> = {
+    return new Proxy(target, {
       set: () => true,
       deleteProperty: () => true,
-    };
-    return new Proxy(target, handler);
+    });
   }
 
   takeStateSnapshot() {
@@ -196,7 +203,7 @@ export class Contract<
       this.gasLimit = gasLimit;
 
       const functionsContext: Omit<FunctionContext<Storage, Views>, 'views'> = {
-        storage: name === '__init__' ? this.storage : this.getStorageProxy(),
+        storage: name === '__init__' ? this.storage : this.deepProxy(this.storage),
         msg: { sender: caller.address, value },
         creator: { address: this.creator.address },
         address: this.address,
