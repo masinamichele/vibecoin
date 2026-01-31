@@ -120,17 +120,23 @@ export class Contract<
   }
 
   private getStorageProxy() {
-    return new Proxy(this.storage, {
-      get: (target, prop) => {
-        this.useGas(config.GasCostStorageRead);
-        return target[prop as keyof typeof target];
-      },
-      set: (target, prop, value) => {
-        this.useGas(config.GasCostStorageWrite);
-        target[prop as keyof typeof target] = value;
-        return true;
-      },
-    });
+    const createHandler = (): ProxyHandler<any> => {
+      return {
+        get: (target, prop, receiver) => {
+          this.useGas(config.GasCostStorageRead);
+          const value = Reflect.get(target, prop, receiver);
+          if (value !== null && typeof value === 'object') {
+            return new Proxy(value, createHandler());
+          }
+          return value;
+        },
+        set: (target, prop, value, receiver) => {
+          this.useGas(config.GasCostStorageWrite);
+          return Reflect.set(target, prop, value, receiver);
+        },
+      };
+    };
+    return new Proxy(this.storage, createHandler());
   }
 
   private deepFreeze<T extends object>(target: T): T {
@@ -142,11 +148,10 @@ export class Contract<
         target[key] = this.deepFreeze(<any>target[key]);
       }
     }
-    const handler: ProxyHandler<any> = {
+    return new Proxy(target, {
       set: () => true,
       deleteProperty: () => true,
-    };
-    return new Proxy(target, handler);
+    });
   }
 
   takeStateSnapshot() {
