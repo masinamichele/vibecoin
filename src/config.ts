@@ -8,10 +8,11 @@ export default {
   FaucetName: 'Ꝟibe',
   DrainName: 'Ꝟoid',
   // Blockchain configuration
-  BlockchainDifficulty: 5,
-  MaxPendingTransactions: 10,
-  AutoMineDelaySeconds: 10,
   GenesisCoinsAmount: 1_000,
+  MaxPendingTransactions: 10,
+  AutoCreateBlockDelaySeconds: 10,
+  // Proof-of-Work configuration
+  BlockchainDifficulty: 5,
   // Transaction configuration
   RewardPerMinedTransaction: 0.1,
   FixedTransactionFee: 0.05,

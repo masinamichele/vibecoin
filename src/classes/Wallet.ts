@@ -1,6 +1,5 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { cleanKey, currency, getDebug, restoreKey } from '../utils';
-import { Transaction } from './Transaction';
 import config from '../config';
 
 const debug = getDebug('wallet');
@@ -30,13 +29,13 @@ export class Wallet {
 
   updateBalance(amount: number) {
     this.balance += amount;
-    const transactionSign = ['-', '+'][+(amount >= 0)];
-    debug(`Balance for ${this.name}: ${transactionSign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
+    const sign = ['-', '+'][+(amount >= 0)];
+    debug(`Balance for ${this.name}: ${sign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
   }
 
-  signTransaction(transaction: Transaction) {
+  sign(item: { signature: string; hash: string }) {
     const pem = restoreKey(Buffer.from(this.key, config.AddressFormat).toString('ascii'), 'PRIVATE');
-    transaction.signature = sign('sha256', Buffer.from(transaction.hash), pem).toString('hex');
-    debug('Transaction signed');
+    item.signature = sign('sha256', Buffer.from(item.hash), pem).toString('hex');
+    debug('Item signed');
   }
 }

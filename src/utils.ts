@@ -1,6 +1,11 @@
 import config from './config';
 import type { Contract, Wallet } from './classes';
 
+export enum Consensus {
+  ProofOfWork,
+  ProofOfStake,
+}
+
 export const currency = (amount: number) => {
   const nf = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: config.Decimals,

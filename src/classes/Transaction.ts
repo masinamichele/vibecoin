@@ -16,6 +16,8 @@ export enum TransactionType {
   ContractCall = 'C',
   Withdrawal = 'W',
   GasOnly = 'G',
+  Stake = 'S',
+  Unstake = 'U',
 }
 
 type TransactionData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
@@ -80,6 +82,8 @@ export class Transaction<
       TransactionType.Transaction,
       TransactionType.ContractDeploy,
       TransactionType.ContractCall,
+      TransactionType.Stake,
+      TransactionType.Unstake,
     ];
     if (signedTypes.includes(this.type)) {
       debug(`Created transaction from ${this.from.name} to ${this.to.name} for ${currency(this.amount)}`);
@@ -87,7 +91,7 @@ export class Transaction<
       debug(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
       debug(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
       if (this.from instanceof Wallet) {
-        this.from.signTransaction(this);
+        this.from.sign(this);
       }
     } else if (this.type === TransactionType.Genesis) {
       debug(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);

@@ -1,10 +1,11 @@
-import { hash } from 'node:crypto';
+import { hash, verify } from 'node:crypto';
 import { Transaction } from './Transaction';
 import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import config from '../config';
-import { getDebug } from '../utils';
+import { Consensus, getDebug, restoreKey } from '../utils';
+import { Wallet } from './Wallet';
 
 const debug = getDebug('block');
 
@@ -20,9 +21,12 @@ export class Block {
   readonly previousHash: string;
 
   private nonce = 0;
-  mined = false;
+  created = false;
   difficulty: number = null;
   mineTime: number = null;
+
+  signature: string = null;
+  validator: Wallet = null;
 
   readonly data: Transaction[];
   private readonly timestamp: number;
@@ -34,6 +38,7 @@ export class Block {
     this.previousHash = block.previousHash;
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
+    this.hash = this.generateHash();
     debug(`Created block with ${this.data.length} transactions (${this.data.map((tx) => tx.type).join('')})`);
   }
 
@@ -72,12 +77,39 @@ export class Block {
     return counter;
   }
 
-  validate() {
-    return this.mined && this.getHashDifficulty() >= this.difficulty && this.hash === this.generateHash();
+  sign(validator: Wallet) {
+    this.validator = validator;
+    validator.sign(this);
+  }
+
+  private verify() {
+    try {
+      const pem = restoreKey(Buffer.from(this.validator.address, config.AddressFormat).toString('ascii'), 'PUBLIC');
+      const valid = verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
+      if (valid) debug('Transaction verified');
+      return valid;
+    } catch {
+      return false;
+    }
+  }
+
+  validate(consensus: Consensus) {
+    if (this.hash !== this.generateHash()) return false;
+
+    if (consensus === Consensus.ProofOfWork) {
+      return this.created && this.getHashDifficulty() >= this.difficulty;
+    }
+
+    if (consensus === Consensus.ProofOfStake) {
+      if (!this.signature || !this.validator) return false;
+      return this.verify();
+    }
+
+    throw new Error('Invalid consensus type');
   }
 
   async mine(difficulty: number) {
-    assert(!this.mined, 'Cannot mine mined block');
+    assert(!this.created, 'Cannot mine mined block');
     debug(`Block mining started, using ${config.BlockMinerPoolSize} workers`);
     const start = Date.now();
     const threads: Worker[] = [];
@@ -109,7 +141,7 @@ export class Block {
       await Promise.all(threads.map((thread) => thread.terminate()));
       this.nonce = nonce;
       this.hash = hash;
-      this.mined = true;
+      this.created = true;
       this.difficulty = difficulty;
       this.mineTime = Date.now() - start;
       debug(`Block mining finished, nonce: ${this.nonce}, took ${this.mineTime}ms`);

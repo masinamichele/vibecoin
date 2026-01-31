@@ -8,7 +8,9 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 
 ### Core Blockchain Functionality
 
+- **Dual Consensus Model** - Switchable between Proof of Work (PoW) and Proof of Stake (PoS)
 - **Proof-of-Work Mining** - Configurable difficulty with multithreaded worker pool
+- **Proof-of-Stake Forging** - Weighted validator selection based on currency staked
 - **Merkle Tree Implementation** - Efficient transaction verification
 - **Digital Signatures** - ECDSA (secp256k1) transaction signing and verification
 - **Chain Validation** - Complete integrity checking across all blocks
@@ -23,9 +25,9 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 
 ### Economic Mechanisms
 
-- **Mining Rewards** - Configurable reward per transaction mined
+- **Mining/Forging Rewards** - Configurable reward per transaction included in a block
+- **Staking & Unstaking** - Users can lock and unlock funds to participate in PoS validation
 - **Auto-Mining with Burn** - Automatic deflationary mechanism when pending pool reaches threshold
-- **Voluntary Mining** - Miners can claim rewards by mining blocks before auto-mine triggers
 - **Treasury System** - Initial supply managed through dedicated treasury wallet
 - **Burn Address** - Deflationary token burning for unused mining rewards
 
@@ -34,11 +36,11 @@ A fully functional blockchain and cryptocurrency implementation built with Node.
 - **Smart Contracts** - JavaScript-based smart contracts with full gas metering
 - **Payable Functions** - Contracts can receive and manage the native currency (VIBE).
 - **ERC-20 Style Tokens** - Fungible token standard with `transfer`, `approve`, and `allowance`
-- **NFTs (ERC-721 Style)** - Non-fungible token standard for unique, textual assets with payable minting.
+- **NFTs (ERC-721 Style)** - Non-fungible token standard for unique, textual assets with payable minting
 - **Multithreaded Mining** - Parallel nonce search using worker threads
-- **Gas System** - Complete gas tracking with storage read/write costs
+- **Gas System** - Complete gas tracking with storage read/write costs, including for failed transactions
 - **Configurable Parameters** - All blockchain parameters adjustable via config
-- **Transaction Types** - Genesis, Transaction, Reward, Fee, Contract Deploy, Contract Call, and Withdrawal.
+- **Transaction Types** - Genesis, Transaction, Reward, Fee, Contract Deploy, Contract Call, Stake, Unstake, and Withdrawal
 - **Auto-Mine Delay** - Grace period for voluntary miners before auto-mining triggers
 - **Deflationary Mechanics** - Deploy fees and unused mining rewards burned permanently
 
@@ -51,17 +53,25 @@ Block
 ├── Data: Transaction[]
 ├── Merkle Root: Hash of all transactions
 ├── Previous Hash: Link to previous block
-├── Nonce: Proof-of-work solution
+├── Nonce / Signature: Proof-of-work solution or validator's signature
 ├── Timestamp: Block creation time
-└── Mining: Multi-threaded PoW solver
+└── Mining / Forging: Multithreaed PoW solver or PoS block creation
 
-Blockchain
+BaseBlockchain (abstract)
 ├── Blocks: Chain of validated blocks
-├── Pending Pool: Unconfirmed transactions
 ├── Contracts: Deployed smart contracts registry
 ├── Faucet: Genesis supply holder
 ├── Drain: Deflationary burn address
 └── Auto-mine: Threshold-based mining
+├── Mempool: Unconfirmed transactions
+└── (Shared logic for transactions, balances, etc.)
+
+Blockchain.ProofOfWork (extends BaseBlockchain)
+└── createBlock(): Mines a new block using PoW
+
+Blockchain.ProofOfStake (extends BaseBlockchain)
+├── Stakers: Record of all staked funds
+└── createBlock(): Forges a new block using PoS
 
 Transaction
 ├── From/To: Wallet or Contract
@@ -152,7 +162,7 @@ export default {
 import { Blockchain, Transaction, Wallet } from './classes';
 
 // Initialize blockchain
-const chain = new Blockchain({ difficulty: 5 });
+const chain = new Blockchain.ProofOfWork({ difficulty: 5 });
 await chain.init();
 
 // Create wallets
@@ -169,7 +179,7 @@ const fundingTx = new Transaction({
 await chain.addTransaction(fundingTx);
 
 // Mine the transaction (miner receives rewards)
-await chain.minePendingTransactions(miner);
+await chain.createBlock(miner);
 
 // Alice sends to Bob
 const paymentTx = new Transaction({
@@ -180,51 +190,44 @@ const paymentTx = new Transaction({
 await chain.addTransaction(paymentTx);
 
 // Voluntary mining
-await chain.minePendingTransactions(miner);
+await chain.createBlock(miner);
 ```
 
-### Smart Contract Deployment and Usage
+### Proof of Stake Example
+
+This example shows how to use the Proof of Stake consensus model.
 
 ```typescript
-import { Contract } from './classes';
-import { createContractCode } from './classes/Contract';
+import { Blockchain, Wallet } from './classes';
 
-// Create a simple counter contract
-const counter = new Contract({
-  name: 'Counter',
-  creator: alice,
-  code: createContractCode({
-    storage: { count: 0, owner: null },
-    views: {
-      getCount() {
-        return this.storage.count;
-      },
-    },
-    functions: {
-      __init__() {
-        this.storage.owner = this.msg.sender;
-      },
-      increment(amount = 1) {
-        if (this.msg.sender !== this.storage.owner) {
-          throw new Error('Only owner can increment');
-        }
-        this.storage.count += amount;
-      },
-    },
-  }),
-});
+// 1. Initialize a Proof of Stake blockchain
+const posChain = new Blockchain.ProofOfStake();
+await posChain.init();
 
-// Deploy contract (costs deploy fee)
-await chain.deployContract(counter);
-await chain.minePendingTransactions(miner);
+// 2. Create wallets and fund them (in a real scenario)
+const alice = new Wallet({ name: 'Alice' });
+const bob = new Wallet({ name: 'Bob' });
+// ... funding transactions ...
 
-// Call contract function (costs gas)
-await chain.$(alice, counter)('increment')(5);
-await chain.minePendingTransactions(miner);
+// 3. Alice and Bob stake their VIBE to become validators
+await posChain.stake(alice, 100); // Alice stakes 100 VIBE
+await posChain.stake(bob, 50);   // Bob stakes 50 VIBE
 
-// Read contract state (off-chain, free)
-console.log(counter.views.getCount()); // 5
-console.log(counter.getReadonlyStorageSnapshot()); // { count: 5, owner: '...' }
+// The chain needs to process these staking transactions
+await posChain.createBlock();
+
+// 4. A new transaction occurs
+const tx = new Transaction({ from: alice, to: bob, amount: 10 });
+await posChain.addTransaction(tx);
+
+// 5. The chain forges a new block.
+// A validator is chosen automatically based on their stake.
+// The chosen validator (either Alice or Bob) receives the rewards.
+await posChain.createBlock();
+
+// 6. Alice decides to unstake her funds
+await posChain.unstake(alice, 100);
+await posChain.createBlock(); // Process the unstaking transaction
 ```
 
 ### ERC-20 Style Token Example
@@ -244,28 +247,15 @@ const MyToken = TokenContract.createContract(alice, {
 
 // 2. Deploy the contract
 await chain.deployContract(MyToken);
-await chain.minePendingTransactions(miner);
+await chain.createBlock(miner);
 
 // Alice now owns the total supply. Let's check her balance.
-// Views are read-only functions that don't cost gas for off-chain reads.
 console.log(MyToken.views.balanceOf(alice.address)); // 1,000,000
 
 // 3. Alice transfers tokens to Bob
 await chain.$(alice, MyToken)('transfer')(bob.address, 5000);
-await chain.minePendingTransactions(miner);
+await chain.createBlock(miner);
 console.log(MyToken.views.balanceOf(bob.address)); // 5000
-
-// 4. Bob approves Alice to spend his tokens
-await chain.$(bob, MyToken)('approve')(alice.address, 1000);
-await chain.minePendingTransactions(miner);
-console.log(MyToken.views.allowance(bob.address, alice.address)); // 1000
-
-// 5. Alice transfers tokens from Bob to the miner
-await chain.$(alice, MyToken)('transferFrom')(bob.address, miner.address, 500);
-await chain.minePendingTransactions(miner);
-
-console.log(MyToken.views.balanceOf(miner.address)); // 500
-console.log(MyToken.views.allowance(bob.address, alice.address)); // 500
 ```
 
 ### NFT (ERC-721) Example with Payable Mint
@@ -275,38 +265,28 @@ This example shows how to create and manage unique, textual NFTs with a minting 
 ```typescript
 import NftContract from './contracts/Nft.contract';
 
-// 1. Create and deploy the NFT Collection
-const myNfts = NftContract.createContract(alice, {
-  name: 'My Textual NFTs',
-  symbol: 'MTN',
+// 1. Create and deploy the NFT Collection with a price
+const secureNfts = NftContract.createContract(alice, {
+  name: 'Secure NFTs',
+  symbol: 'SNFT',
+  mintPrice: 10,
+  beneficiary: alice, // Alice will receive the fees from other minters
 });
-await chain.deployContract(myNfts);
-await chain.minePendingTransactions(eve);
-console.log(`NFT Collection "${myNfts.views.name()}" deployed!`);
+await chain.deployContract(secureNfts);
+await chain.createBlock(eve);
+console.log(`NFT Collection "${secureNfts.views.name()}" deployed with a mint price of 10 VIBE.`);
 
-// 2. Mint the first NFT to Alice
-await chain.$(alice, myNfts)('mint', { value: 10 })(alice.address, 'nft-001', 'Hello, this is my first NFT!');
-await chain.minePendingTransactions(eve);
-console.log(`Alice's NFT balance: ${myNfts.views.balanceOf(alice.address)}`);
-console.log(`Owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
+// 2. Bob mints an NFT, paying 10 VIBE to the contract
+// The contract will automatically forward these funds to the beneficiary (Alice)
+await chain.$(bob, secureNfts, { amount: 10 })('mint')(bob.address, 'snft-001', 'This NFT had a price!');
+await chain.createBlock(eve);
+console.log(`Bob minted 'snft-001'. Alice should have received the fee.`);
 
-// 3. Alice approves Bob to transfer nft-001
-await chain.$(alice, myNfts)('approve')(bob.address, 'nft-001');
-await chain.minePendingTransactions(eve);
-
-// 4. Bob transfers the NFT from Alice to Charlie
-await chain.$(bob, myNfts)('transferFrom')(alice.address, charlie.address, 'nft-001');
-await chain.minePendingTransactions(eve);
-console.log(`New owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
-
-// 5. Charlie approves Alice as an operator for all his assets
-await chain.$(charlie, myNfts)('setApprovalForAll')(alice.address, true);
-await chain.minePendingTransactions(eve);
-
-// 6. Alice, as an operator, transfers the NFT back to Bob
-await chain.$(alice, myNfts)('transferFrom')(charlie.address, bob.address, 'nft-001');
-await chain.minePendingTransactions(eve);
-console.log(`Final owner of nft-001: ${myNfts.views.ownerOf('nft-001')}`);
+// 3. Alice, as the beneficiary, mints an NFT
+// The contract logic redirects her payment to the drain address to prevent a free mint.
+await chain.$(alice, secureNfts, { amount: 10 })('mint')(alice.address, 'snft-002', 'My fee goes to the drain!');
+await chain.createBlock(eve);
+console.log(`Alice minted 'snft-002'. Her fee was burned.`);
 ```
 
 ### Auto-Mining Mechanism
@@ -328,7 +308,7 @@ for (let i = 0; i < 15; i++) {
 // 3. If no miner acts, auto-mine burns rewards to deflate supply
 
 // Miner can claim before auto-mine
-await chain.minePendingTransactions(miner); // Cancels auto-mine
+await chain.createBlock(miner); // Cancels auto-mine
 ```
 
 ### Balance Checking
@@ -357,23 +337,12 @@ Each transaction costs:
 - **Variable Fee**: 1% of transaction amount (configurable)
 - **Total Cost**: `amount + 0.05 + (amount × 0.01)`
 
-Example:
-
-```
-Transfer 100 VIBE
-├── Amount: 100 VIBE
-├── Fixed Fee: 0.05 VIBE
-├── Variable Fee: 1 VIBE (1%)
-└── Total Cost: 101.05 VIBE
-```
-
 ### Smart Contract Costs
 
 **Deployment:**
 
 - **Base Fee**: 1 VIBE (burned to drain address)
 - **Per-Byte Fee**: 0.001 VIBE per byte of code (burned to drain address)
-- Larger contracts cost more to discourage spam
 
 **Execution:**
 
@@ -381,7 +350,7 @@ Transfer 100 VIBE
 - **Storage Read**: 200 gas per operation
 - **Storage Write**: 5,000 gas per operation
 - **Gas Price**: 0.000001 VIBE per gas unit
-- Gas costs go to the miner as fees
+- Gas costs go to the miner/validator as fees, even for failed transactions.
 
 **NFT Minting:**
 
@@ -389,9 +358,9 @@ Transfer 100 VIBE
 - **Fee Forwarding**: The `mint` function is payable and automatically forwards the received VIBE to a designated `beneficiary` wallet.
 - **Beneficiary Rule**: If the collection's beneficiary mints an NFT, the fee is sent to the `drain` address instead, ensuring a real economic cost and preventing exploits.
 
-### Mining Rewards
+### Mining & Forging Rewards
 
-Miners receive:
+Miners (PoW) or Validators (PoS) receive:
 
 - **Transaction Rewards**: 0.1 VIBE per transaction (configurable)
 - **Transaction Fees**: All fixed and variable fees from regular transactions
@@ -486,27 +455,9 @@ Inside contract functions:
 - `this.views` - Access to read-only view functions
 - `this.msg.sender` - Address of the caller
 
-### Error Handling
-
-```typescript
-functions: {
-  restrictedFunction() {
-    if (this.msg.sender !== this.storage.owner) {
-      throw new ChainError.OwnershipError('Not authorized');
-    }
-    // ... function logic
-  }
-}
-```
-
-Custom errors:
-
-- `ChainError.OwnershipError` - Access control violations
-- `ChainError.OutOfGasError` - Execution ran out of gas
-
 ## Technical Details
 
-### Proof-of-Work
+### Proof-of-Work (PoW)
 
 The blockchain uses SHA-256 based proof-of-work:
 
@@ -514,6 +465,15 @@ The blockchain uses SHA-256 based proof-of-work:
 - Difficulty = number of leading zeros required
 - Multithreaded search with 10 worker threads
 - Each worker searches different nonce range
+
+### Proof-of-Stake (PoS)
+
+The blockchain can be configured to use Proof of Stake:
+
+- **Staking**: Users lock VIBE to become validators.
+- **Validator Selection**: A validator is chosen to forge the next block via a weighted random selection based on their stake size.
+- **Block Forging**: The chosen validator collects transactions and creates a new block without a computational puzzle.
+- **Signature**: The new block is signed with the validator's private key to prove its authenticity.
 
 ### Digital Signatures
 
@@ -541,6 +501,10 @@ Transactions organized in binary hash tree:
 - **Fees (F)**: Fee collection to block miner (includes gas fees)
 - **ContractDeploy (D)**: Smart contract deployment
 - **ContractCall (C)**: Smart contract function execution
+- **Stake (S)**: User locks funds to become a validator.
+- **Unstake (U)**: User unlocks funds.
+- **Withdrawal (W)**: Contract transfers funds to a user.
+- **GasOnly (O)**: A failed contract call that only pays for gas.
 
 ## Development
 
@@ -586,6 +550,10 @@ vibecoin/
 
 Potential additions for learning:
 
+- [x] Payable contract functions (send value with calls)
+- [x] ERC-20 style token contracts
+- [x] NFT support
+- [x] Consensus algorithms (PoS)
 - [ ] Inter-contract calls
 - [ ] Contract events and logs
 - [ ] Peer-to-peer networking
@@ -593,17 +561,15 @@ Potential additions for learning:
 - [ ] Dynamic difficulty adjustment
 - [ ] Transaction history queries
 - [ ] Mining statistics dashboard
-- [ ] NFT support
 - [ ] Advanced smart contract patterns
-- [ ] Consensus algorithms (PoS, etc.)
 
 ## Educational Purpose
 
 This project is designed for learning blockchain fundamentals:
 
 - ✅ Cryptographic concepts (hashing, signatures)
-- ✅ Consensus mechanisms (proof-of-work)
-- ✅ Economic incentives (mining, fees, deflation)
+- ✅ Consensus mechanisms (proof-of-work, proof-of-stake)
+- ✅ Economic incentives (mining, fees, deflation, staking)
 - ✅ Data structures (Merkle trees, linked lists)
 - ✅ Distributed systems concepts
 - ✅ Transaction validation
