@@ -3,7 +3,7 @@ import { Transaction, TransactionType } from './Transaction';
 import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
-import { Amount, Consensus, getDebug, Recipient } from '../utils';
+import { Amount, ChainError, Consensus, getDebug, Recipient } from '../utils';
 import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 import { getRandomValues } from 'node:crypto';
 
@@ -57,7 +57,9 @@ abstract class BaseBlockchain {
   }
 
   async deployContract(contract: Contract<any, any, any>) {
-    assert(!this.contracts.has(contract.address), 'Contract already deployed');
+    if (this.contracts.has(contract.address)) {
+      throw new ChainError.DuplicatedContract();
+    }
 
     const codeSize = contract.getCodeSize();
     const deployFee = config.ContractDeployBaseFee + config.ContractDeployPerByteFee * codeSize;
@@ -96,12 +98,18 @@ abstract class BaseBlockchain {
   }
 
   async addTransaction(transaction: Transaction) {
-    assert(transaction.from && transaction.to, 'Transaction must have a sender and a receiver');
-    assert(transaction.from.address !== transaction.to.address, 'Sender and receiver must be different');
-    if (transaction.type === TransactionType.Transaction) {
-      assert(transaction.amount > 0, 'Transaction must have a positive amount');
+    if (!transaction.from || !transaction.to) {
+      throw new ChainError.MissingData();
     }
-    assert(transaction.verify(), 'Transaction cannot be verified');
+    if (transaction.from.address === transaction.to.address) {
+      throw new ChainError.InvalidData();
+    }
+    if (transaction.type === TransactionType.Transaction) {
+      throw new ChainError.InvalidData();
+    }
+    if (!transaction.verify()) {
+      throw new ChainError.InvalidSignature();
+    }
 
     this.mempool.push(transaction);
   }
@@ -152,7 +160,9 @@ abstract class BaseBlockchain {
   ) {
     return (name: Exclude<keyof F, '__init__'>, { value = 0, gasLimit = config.DefaultGasLimit } = {}) => {
       return (...args: any[]) => {
-        assert(this.contracts.has(contract.address), 'Contract is not deployed');
+        if (!this.contracts.has(contract.address)) {
+          throw new ChainError.NonExistentContract();
+        }
         const callTransaction = new Transaction({
           from: sender,
           to: contract,
@@ -487,7 +497,9 @@ export namespace Blockchain {
     }
 
     async stake(staker: Wallet, amount: number) {
-      assert(amount > 0, 'Stake amount must be positive');
+      if (amount <= 0) {
+        throw new ChainError.InvalidData();
+      }
       const stakeTransaction = new Transaction({
         type: TransactionType.Stake,
         from: staker,
@@ -498,9 +510,13 @@ export namespace Blockchain {
     }
 
     async unstake(staker: Wallet, amount: number) {
-      assert(amount > 0, 'Unstake amount must be positive');
+      if (amount <= 0) {
+        throw new ChainError.InvalidData();
+      }
       const currentStake = this.stakers.get(staker) ?? 0;
-      assert(currentStake >= amount, 'Insufficient funds to unstake');
+      if (currentStake < amount) {
+        throw new ChainError.InsufficientFunds();
+      }
       const unstakeTransaction = new Transaction({
         type: TransactionType.Unstake,
         from: this.drain,

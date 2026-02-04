@@ -106,7 +106,7 @@ export class Contract<
   private useGas(amount: number) {
     this.gasUsed += amount;
     if (this.gasUsed > this.gasLimit) {
-      throw new ChainError.OutOfGasError(`Contract '${this.name}' out of gas`);
+      throw new ChainError.OutOfGas(`Contract '${this.name}' out of gas`);
     }
   }
 
@@ -228,7 +228,7 @@ export class Contract<
         return {
           success: false,
           result: null,
-          gasUsed: error instanceof ChainError.OutOfGasError ? this.gasLimit : this.gasUsed,
+          gasUsed: error instanceof ChainError.OutOfGas ? this.gasLimit : this.gasUsed,
           error: error,
           transfers: [],
         };

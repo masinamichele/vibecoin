@@ -34,22 +34,19 @@ export type TokenId = string;
 export type TokenData = string;
 
 export namespace ChainError {
-  export class OwnershipError extends Error {
-    override name = 'OwnershipError';
+  class AutoNamedError extends Error {
+    override get name() {
+      return `${this.constructor.name}Error`;
+    }
   }
-  export class OutOfGasError extends Error {
-    override name = 'OutOfGasError';
-  }
-  export class DuplicatedTokenError extends Error {
-    override name = 'DuplicatedTokenError';
-  }
-  export class NonExistentTokenError extends Error {
-    override name = 'NonExistentTokenError';
-  }
-  export class MissingDataError extends Error {
-    override name = 'MissingDataError';
-  }
-  export class InsufficientFundsError extends Error {
-    override name = 'InsufficientFundsError';
-  }
+  export class Ownership extends AutoNamedError {}
+  export class OutOfGas extends AutoNamedError {}
+  export class DuplicatedToken extends AutoNamedError {}
+  export class NonExistentToken extends AutoNamedError {}
+  export class MissingData extends AutoNamedError {}
+  export class InvalidData extends AutoNamedError {}
+  export class InsufficientFunds extends AutoNamedError {}
+  export class NonExistentContract extends AutoNamedError {}
+  export class DuplicatedContract extends AutoNamedError {}
+  export class InvalidSignature extends AutoNamedError {}
 }

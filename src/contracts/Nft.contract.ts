@@ -36,14 +36,14 @@ export default {
           ownerOf(tokenId: string) {
             const owner = this.storage.tokenOwner[tokenId];
             if (!owner) {
-              throw new ChainError.NonExistentTokenError('Token ID does not exist');
+              throw new ChainError.NonExistentToken('Token ID does not exist');
             }
             return owner;
           },
           tokenData(tokenId: string) {
             const data = this.storage.tokenData[tokenId];
             if (!data) {
-              throw new ChainError.NonExistentTokenError('Token ID does not exist');
+              throw new ChainError.NonExistentToken('Token ID does not exist');
             }
             return data;
           },
@@ -63,13 +63,13 @@ export default {
         functions: {
           mint(to: string, tokenId: string, data: string) {
             if (!data) {
-              throw new ChainError.MissingDataError('Token data is required');
+              throw new ChainError.MissingData('Token data is required');
             }
             if (this.storage.tokenOwner[tokenId]) {
-              throw new ChainError.DuplicatedTokenError('Token already minted');
+              throw new ChainError.DuplicatedToken('Token already minted');
             }
             if (this.msg.value < this.storage.mintPrice) {
-              throw new ChainError.InsufficientFundsError('Insufficient funds');
+              throw new ChainError.InsufficientFunds('Insufficient funds');
             }
             this.storage.tokenOwner[tokenId] = to;
             this.storage.tokenData[tokenId] = data;
@@ -83,15 +83,15 @@ export default {
           transferFrom(from: string, to: string, tokenId: string) {
             const owner = this.views.ownerOf(tokenId);
             if (owner !== from) {
-              throw new ChainError.OwnershipError('Not token owner');
+              throw new ChainError.Ownership('Not token owner');
             }
             if (!to || to === from || to === owner) {
-              throw new ChainError.MissingDataError('To address is required');
+              throw new ChainError.MissingData('To address is required');
             }
             const approvedAddress = this.storage.tokenApprovals[tokenId];
             const isOperator = this.views.isApprovedForAll(from, this.msg.sender);
             if (owner !== this.msg.sender && approvedAddress !== this.msg.sender && !isOperator) {
-              throw new ChainError.OwnershipError('Not approved');
+              throw new ChainError.Ownership('Not approved');
             }
             if (approvedAddress) {
               delete this.storage.tokenApprovals[tokenId];
@@ -102,21 +102,21 @@ export default {
           },
           approve(to: string, tokenId: string) {
             if (to === this.msg.sender) {
-              throw new ChainError.OwnershipError('Cannot approve self');
+              throw new ChainError.Ownership('Cannot approve self');
             }
             const owner = this.views.ownerOf(tokenId);
             const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);
             if (owner !== this.msg.sender && !isOperator) {
-              throw new ChainError.OwnershipError('Not approved');
+              throw new ChainError.Ownership('Not approved');
             }
             if (!to || to === owner) {
-              throw new ChainError.MissingDataError('To address is required');
+              throw new ChainError.MissingData('To address is required');
             }
             this.storage.tokenApprovals[tokenId] = to;
           },
           setApprovalForAll(operator: string, approved: boolean) {
             if (operator === this.msg.sender) {
-              throw new ChainError.OwnershipError('Cannot approve self');
+              throw new ChainError.Ownership('Cannot approve self');
             }
             const owner = this.msg.sender;
             if (!this.storage.operatorApprovals[owner]) {

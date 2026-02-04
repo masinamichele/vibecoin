@@ -39,10 +39,10 @@ export default {
           },
           transfer(to: string, amount: number) {
             if (amount <= 0) {
-              throw new ChainError.MissingDataError('Amount must be greater than 0');
+              throw new ChainError.MissingData('Amount must be greater than 0');
             }
             if (this.views.balanceOf(this.msg.sender) < amount) {
-              throw new ChainError.InsufficientFundsError('Insufficient funds');
+              throw new ChainError.InsufficientFunds('Insufficient funds');
             }
             this.storage.balances[this.msg.sender] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;
@@ -50,14 +50,14 @@ export default {
           },
           transferFrom(from: string, to: string, amount: number) {
             if (amount <= 0) {
-              throw new ChainError.MissingDataError('Amount must be greater than 0');
+              throw new ChainError.MissingData('Amount must be greater than 0');
             }
 
             const allowance = this.views.allowance(from, this.msg.sender);
-            if (allowance < amount) throw new ChainError.InsufficientFundsError('Insufficient allowance');
+            if (allowance < amount) throw new ChainError.InsufficientFunds('Insufficient allowance');
 
             if (this.views.balanceOf(from) < amount) {
-              throw new ChainError.InsufficientFundsError('Insufficient funds');
+              throw new ChainError.InsufficientFunds('Insufficient funds');
             }
             this.storage.balances[from] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;

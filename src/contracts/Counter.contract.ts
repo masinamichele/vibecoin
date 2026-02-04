@@ -19,7 +19,7 @@ export default {
           },
           increment(amount = 1) {
             if (this.msg.sender !== this.storage.owner) {
-              throw new ChainError.OwnershipError('Only the owner can change the counter');
+              throw new ChainError.Ownership('Only the owner can change the counter');
             }
             this.storage.count += amount;
           },
