@@ -2,8 +2,14 @@ import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
 import { currency, getDebug, restoreKey } from '../utils';
-import { type CallResult, Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
-import { Recipient } from '../types';
+import {
+  type CallResult,
+  Contract,
+  type ContractFunctions,
+  type ContractStorage,
+  type ContractViews,
+} from './Contract';
+import type { Recipient } from '../types';
 import { ChainError } from '../errors';
 
 const debug = getDebug('tx');

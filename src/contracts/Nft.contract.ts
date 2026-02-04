@@ -1,6 +1,6 @@
-import { Contract, Wallet } from '../classes';
+import { Contract, type Wallet } from '../classes';
 import { createContractCode } from '../classes/Contract';
-import { Address, Amount, TokenData, TokenId } from '../types';
+import type { Address, Amount, TokenData, TokenId } from '../types';
 import { ChainError } from '../errors';
 
 // Standard ERC-721 Contract

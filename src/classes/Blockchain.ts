@@ -5,8 +5,8 @@ import config from '../config';
 import assert from 'node:assert/strict';
 import { getDebug } from '../utils';
 import { ChainError } from '../errors';
-import { Consensus, Amount, Recipient } from '../types';
-import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
+import { type Amount, Consensus, type Recipient } from '../types';
+import { Contract, type ContractFunctions, type ContractStorage, type ContractViews } from './Contract';
 import { getRandomValues } from 'node:crypto';
 
 const debug = getDebug('chain');

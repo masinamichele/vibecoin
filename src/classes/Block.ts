@@ -7,7 +7,7 @@ import config from '../config';
 import { getDebug, restoreKey } from '../utils';
 import { ChainError } from '../errors';
 import { Consensus } from '../types';
-import { Wallet } from './Wallet';
+import type { Wallet } from './Wallet';
 
 const debug = getDebug('block');
 

@@ -1,4 +1,4 @@
-import { Wallet } from './Wallet';
+import type { Wallet } from './Wallet';
 import { hash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { getDebug } from '../utils';
