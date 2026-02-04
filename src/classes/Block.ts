@@ -4,7 +4,9 @@ import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import config from '../config';
-import { ChainError, Consensus, getDebug, restoreKey } from '../utils';
+import { getDebug, restoreKey } from '../utils';
+import { ChainError } from '../errors';
+import { Consensus } from '../types';
 import { Wallet } from './Wallet';
 
 const debug = getDebug('block');

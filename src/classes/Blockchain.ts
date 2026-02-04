@@ -3,7 +3,9 @@ import { Transaction, TransactionType } from './Transaction';
 import { Wallet } from './Wallet';
 import config from '../config';
 import assert from 'node:assert/strict';
-import { Amount, ChainError, Consensus, getDebug, Recipient } from '../utils';
+import { getDebug } from '../utils';
+import { ChainError } from '../errors';
+import { Consensus, Amount, Recipient } from '../types';
 import { Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 import { getRandomValues } from 'node:crypto';
 

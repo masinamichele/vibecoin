@@ -1,8 +1,9 @@
 import { Wallet } from './Wallet';
 import { hash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { ChainError, getDebug } from '../utils';
+import { getDebug } from '../utils';
 import config from '../config';
+import { ChainError } from '../errors';
 
 const debug = getDebug('contract');
 

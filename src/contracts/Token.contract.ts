@@ -1,6 +1,7 @@
 import { Contract, Wallet } from '../classes';
 import { createContractCode } from '../classes/Contract';
-import { Address, Amount, ChainError } from '../utils';
+import { Address, Amount } from '../types';
+import { ChainError } from '../errors';
 
 // Standard ERC-20 Contract
 export default {

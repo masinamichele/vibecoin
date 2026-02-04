@@ -1,8 +1,10 @@
 import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
-import { ChainError, currency, getDebug, Recipient, restoreKey } from '../utils';
+import { currency, getDebug, restoreKey } from '../utils';
 import { type CallResult, Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
+import { Recipient } from '../types';
+import { ChainError } from '../errors';
 
 const debug = getDebug('tx');
 
