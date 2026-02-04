@@ -36,7 +36,7 @@ export class Block {
 
   constructor(block: BlockData) {
     this.data = block.data;
-    if (this.data?.length) throw new ChainError.InvalidData();
+    if (!this.data?.length) throw new ChainError.InvalidData();
     this.previousHash = block.previousHash;
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
