@@ -1,5 +1,14 @@
 {
   "compilerOptions": {
+    "baseUrl": "./",
+    "paths": {
+      "#config": ["src/config"],
+      "#classes": ["src/classes/index"],
+      "#contracts/*": ["src/contracts/*"],
+      "#utils": ["src/utils"],
+      "#errors": ["src/errors"],
+      "#types": ["src/types"]
+    },
     "rootDir": "./src",
     "outDir": "./dist",
     "module": "nodenext",

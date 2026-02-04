@@ -1,7 +1,6 @@
-import { Contract, type Wallet } from '../classes';
-import { createContractCode } from '../classes/Contract';
-import type { Address, Amount } from '../types';
-import { ChainError } from '../errors';
+import { Contract, type Wallet, createContractCode } from '#classes';
+import type { Address, Amount } from '#types';
+import { ChainError } from '#errors';
 
 // Standard ERC-20 Contract
 export default {

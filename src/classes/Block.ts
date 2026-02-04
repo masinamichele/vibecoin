@@ -1,15 +1,14 @@
 import { hash, verify } from 'node:crypto';
-import { Transaction } from './Transaction';
+import { Transaction, type Wallet } from '#classes';
 import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import config from '../config';
-import { getDebug, restoreKey } from '../utils';
-import { ChainError } from '../errors';
-import { Consensus } from '../types';
-import type { Wallet } from './Wallet';
+import config from '#config';
+import { getLogger, restoreKey } from '#utils';
+import { ChainError } from '#errors';
+import { Consensus } from '#types';
 
-const debug = getDebug('block');
+const log = getLogger('block');
 
 type BlockData = {
   data: Transaction[];
@@ -41,7 +40,7 @@ export class Block {
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
     this.hash = this.generateHash();
-    debug(`Created block with ${this.data.length} transactions (${this.data.map((tx) => tx.type).join('')})`);
+    log(`Created block with ${this.data.length} transactions (${this.data.map((tx) => tx.type).join('')})`);
   }
 
   private generateHash() {
@@ -88,7 +87,7 @@ export class Block {
     try {
       const pem = restoreKey(Buffer.from(this.validator.address, config.AddressFormat).toString('ascii'), 'PUBLIC');
       const valid = verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
-      if (valid) debug('Transaction verified');
+      if (valid) log('Transaction verified');
       return valid;
     } catch {
       return false;
@@ -109,7 +108,7 @@ export class Block {
 
   async mine(difficulty: number) {
     assert(!this.created, 'Cannot mine mined block');
-    debug(`Block mining started, using ${config.BlockMinerPoolSize} workers`);
+    log(`Block mining started, using ${config.BlockMinerPoolSize} workers`);
     const start = Date.now();
     const threads: Worker[] = [];
     const results: Promise<BlockMiningResult>[] = [];
@@ -143,7 +142,7 @@ export class Block {
       this.created = true;
       this.difficulty = difficulty;
       this.mineTime = Date.now() - start;
-      debug(`Block mining finished, nonce: ${this.nonce}, took ${this.mineTime}ms`);
+      log(`Block mining finished, nonce: ${this.nonce}, took ${this.mineTime}ms`);
     } catch {
       throw new ChainError.Mining();
     }

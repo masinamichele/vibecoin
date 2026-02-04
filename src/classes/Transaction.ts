@@ -1,18 +1,18 @@
 import { hash, verify } from 'node:crypto';
-import { Wallet } from './Wallet';
-import config from '../config';
-import { currency, getDebug, restoreKey } from '../utils';
+import config from '#config';
+import { currency, getLogger, restoreKey } from '#utils';
 import {
-  type CallResult,
+  Wallet,
   Contract,
+  type CallResult,
   type ContractFunctions,
   type ContractStorage,
   type ContractViews,
-} from './Contract';
-import type { Recipient } from '../types';
-import { ChainError } from '../errors';
+} from '#classes';
+import type { Recipient } from '#types';
+import { ChainError } from '#errors';
 
-const debug = getDebug('tx');
+const log = getLogger('tx');
 
 export enum TransactionType {
   Genesis = '_',
@@ -89,15 +89,15 @@ export class Transaction<
       TransactionType.Unstake,
     ];
     if (signedTypes.includes(this.type)) {
-      debug(`Created transaction from ${this.from.name} to ${this.to.name} for ${currency(this.amount)}`);
-      debug(`Fixed transaction fee: ${currency(config.FixedTransactionFee)}`);
-      debug(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
-      debug(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
+      log(`Created transaction from ${this.from.name} to ${this.to.name} for ${currency(this.amount)}`);
+      log(`Fixed transaction fee: ${currency(config.FixedTransactionFee)}`);
+      log(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
+      log(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
       if (this.from instanceof Wallet) {
         this.from.sign(this);
       }
     } else if (this.type === TransactionType.Genesis) {
-      debug(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);
+      log(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);
     }
   }
 
@@ -110,7 +110,7 @@ export class Transaction<
     try {
       const pem = restoreKey(Buffer.from(this.from.address, config.AddressFormat).toString('ascii'), 'PUBLIC');
       const valid = verify('sha256', Buffer.from(this.hash), pem, Buffer.from(this.signature, 'hex'));
-      if (valid) debug('Transaction verified');
+      if (valid) log('Transaction verified');
       return valid;
     } catch {
       return false;

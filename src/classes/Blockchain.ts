@@ -1,15 +1,21 @@
-import { Block } from './Block';
-import { Transaction, TransactionType } from './Transaction';
-import { Wallet } from './Wallet';
-import config from '../config';
+import {
+  Block,
+  Transaction,
+  TransactionType,
+  Wallet,
+  Contract,
+  type ContractFunctions,
+  type ContractStorage,
+  type ContractViews,
+} from '#classes';
+import config from '#config';
 import assert from 'node:assert/strict';
-import { getDebug } from '../utils';
-import { ChainError } from '../errors';
-import { type Amount, Consensus, type Recipient } from '../types';
-import { Contract, type ContractFunctions, type ContractStorage, type ContractViews } from './Contract';
+import { getLogger } from '#utils';
+import { ChainError } from '#errors';
+import { type Amount, Consensus, type Recipient } from '#types';
 import { getRandomValues } from 'node:crypto';
 
-const debug = getDebug('chain');
+const log = getLogger('chain');
 
 type PowBlockchainProperties = {
   difficulty: number;
@@ -43,11 +49,11 @@ abstract class BaseBlockchain {
   }
 
   async init() {
-    debug('Generating genesis block');
+    log('Generating genesis block');
     const genesis = await this.generateGenesisBlock();
     this.blocks.push(genesis);
     this.initialized = true;
-    debug('Blockchain initialized');
+    log('Blockchain initialized');
   }
 
   protected abstract generateGenesisBlock(): Promise<Block>;
@@ -171,7 +177,7 @@ abstract class BaseBlockchain {
 
   protected commonCreateBlockP1(rewardWallet: Wallet): CommonBlockCreationCheckpoint {
     if (!this.mempool.length) {
-      debug('No transactions to handle');
+      log('No transactions to handle');
       return null;
     }
 
@@ -188,12 +194,12 @@ abstract class BaseBlockchain {
     }
 
     if (handledTransactions.length === 0) {
-      debug('No transactions to handle');
+      log('No transactions to handle');
       this.isCreatingBlock = false;
       return null;
     }
 
-    debug(`Handling ${handledTransactions.length} transactions`);
+    log(`Handling ${handledTransactions.length} transactions`);
 
     for (const transaction of handledTransactions) {
       this.executeTransaction(transaction, runningBalances, internalTransactions);
@@ -336,7 +342,7 @@ abstract class BaseBlockchain {
   private executeContractDeployTransaction(transaction: Transaction) {
     this.contracts.add(transaction.contract.address);
     transaction.contract.initialize();
-    debug(`Contract '${transaction.contract.name}' deployed`);
+    log(`Contract '${transaction.contract.name}' deployed`);
   }
 
   private preflightContractCallTransaction(transaction: Transaction, runningBalances: Record<string, number>) {
@@ -364,7 +370,7 @@ abstract class BaseBlockchain {
       const contractBalance = runningBalances[transaction.to.address] ?? this.getBalance(transaction.to);
       const totalWithdrawalAmount = transaction.callResult.transfers.reduce((acc, val) => acc + val.amount, 0);
       if (totalWithdrawalAmount > contractBalance) {
-        debug(`! Withdrawal failed for ${transaction.contract.name}: insufficient funds`);
+        log(`! Withdrawal failed for ${transaction.contract.name}: insufficient funds`);
       } else {
         for (const transfer of transaction.callResult.transfers) {
           const withdrawalTx = new Transaction({
@@ -379,7 +385,7 @@ abstract class BaseBlockchain {
     } else {
       transaction.contract.revert();
       const s = `! ${transaction.callResult.error.name} in ${transaction.contract.name}.${<string>transaction.functionName}: ${transaction.callResult.error.message}`;
-      debug(s);
+      log(s);
     }
   }
 }
@@ -392,7 +398,7 @@ export namespace Blockchain {
       super();
       assert(properties.difficulty > 0, 'Difficulty must be a positive number');
       this.difficulty = properties.difficulty;
-      debug(`Initializing ${config.CurrencyName} Proof-of-Work blockchain with difficulty ${this.difficulty}`);
+      log(`Initializing ${config.CurrencyName} Proof-of-Work blockchain with difficulty ${this.difficulty}`);
     }
 
     protected async generateGenesisBlock() {
@@ -418,13 +424,13 @@ export namespace Blockchain {
       assert(block.difficulty === this.difficulty, 'Cannot add block with mismatched difficulty');
       assert(block.previousHash === this.getLatestBlock().hash, 'Cannot add block with mismatched hash');
       this.blocks.push(block);
-      debug(`Added block, total blocks: ${this.blocks.length}`);
+      log(`Added block, total blocks: ${this.blocks.length}`);
     }
 
     override async addTransaction(transaction: Transaction) {
       await super.addTransaction(transaction);
       if (this.mempool.length >= config.MaxPendingTransactions) {
-        debug('Pending transaction pool size limit reached, scheduling auto-mine');
+        log('Pending transaction pool size limit reached, scheduling auto-mine');
         clearTimeout(this.autoAddBlockSchedule);
         this.autoAddBlockSchedule = setTimeout(
           () => this.createBlock(this.drain),
@@ -438,10 +444,10 @@ export namespace Blockchain {
     }
 
     async createBlock(rewardWallet: Wallet) {
-      debug(`${rewardWallet.name} is trying to mine ${this.mempool.length} transactions`);
+      log(`${rewardWallet.name} is trying to mine ${this.mempool.length} transactions`);
 
       if (rewardWallet != this.drain && this.autoAddBlockSchedule) {
-        debug('Clearing auto-mine schedule');
+        log('Clearing auto-mine schedule');
         clearTimeout(this.autoAddBlockSchedule);
         this.autoAddBlockSchedule = null;
       }
@@ -460,7 +466,7 @@ export namespace Blockchain {
 
     constructor() {
       super();
-      debug(`Initializing ${config.CurrencyName} Proof-of-Stake blockchain`);
+      log(`Initializing ${config.CurrencyName} Proof-of-Stake blockchain`);
     }
 
     protected async generateGenesisBlock() {
@@ -483,7 +489,7 @@ export namespace Blockchain {
       assert(block.validate(Consensus.ProofOfStake), 'Block failed PoS signature validation');
       assert(block.previousHash === this.getLatestBlock().hash, 'Cannot add block with mismatched hash');
       this.blocks.push(block);
-      debug(`Added block, total blocks: ${this.blocks.length}`);
+      log(`Added block, total blocks: ${this.blocks.length}`);
     }
 
     async stake(staker: Wallet, amount: number) {
@@ -535,7 +541,7 @@ export namespace Blockchain {
     override async addTransaction(transaction: Transaction) {
       await super.addTransaction(transaction);
       if (this.mempool.length >= config.MaxPendingTransactions) {
-        debug('Pending transaction pool size limit reached, scheduling auto-forge');
+        log('Pending transaction pool size limit reached, scheduling auto-forge');
         clearTimeout(this.autoAddBlockSchedule);
         this.autoAddBlockSchedule = setTimeout(() => this.createBlock(), config.AutoCreateBlockDelaySeconds * 1000);
       }
@@ -547,10 +553,10 @@ export namespace Blockchain {
 
     async createBlock() {
       const rewardWallet = this.selectValidator();
-      debug(`${rewardWallet.name} is trying to validate ${this.mempool.length} transactions`);
+      log(`${rewardWallet.name} is trying to validate ${this.mempool.length} transactions`);
 
       if (this.autoAddBlockSchedule) {
-        debug('Clearing auto-forge schedule');
+        log('Clearing auto-forge schedule');
         clearTimeout(this.autoAddBlockSchedule);
         this.autoAddBlockSchedule = null;
       }

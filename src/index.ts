@@ -1,10 +1,10 @@
-import { Blockchain, Transaction, Wallet } from './classes';
-import config from './config';
-import { currency, getDebug } from './utils';
-import Token from './contracts/Token.contract';
-import Nft from './contracts/Nft.contract';
+import { Blockchain, Transaction, Wallet } from '#classes';
+import config from '#config';
+import { currency, getLogger } from '#utils';
+import Token from '#contracts/Token.contract';
+import Nft from '#contracts/Nft.contract';
 
-const debug = getDebug('main');
+const log = getLogger('main');
 
 console.clear();
 console.log(`${config.CurrencySymbol} ${config.CurrencyName} Blockchain`);
@@ -62,7 +62,7 @@ console.log();
   await chain.$(bob, vibeToken)('approve')(charlie.address, 50);
   await chain.$(charlie, vibeToken)('transferFrom')(bob.address, alice.address, 5);
   await chain.createBlock();
-  console.log(vibeToken.getReadonlyStorageSnapshot());
+  // console.log(vibeToken.getReadonlyStorageSnapshot());
 
   /**
    * ERC-721 (non-fungible token) contract usage
@@ -85,8 +85,8 @@ console.log();
   await chain.createBlock();
   // console.log(nft.getReadonlyStorageSnapshot());
 
-  debug(`Total: ${currency(chain.getTotalSupply())}`);
-  debug(`Available: ${currency(chain.getBalance(chain.faucet))}`);
-  debug(`Circulating: ${currency(chain.getCirculatingSupply())}`);
-  debug(`Drained: ${currency(chain.getDrainedAmount())}`);
+  log(`Total: ${currency(chain.getTotalSupply())}`);
+  log(`Available: ${currency(chain.getBalance(chain.faucet))}`);
+  log(`Circulating: ${currency(chain.getCirculatingSupply())}`);
+  log(`Drained: ${currency(chain.getDrainedAmount())}`);
 })();

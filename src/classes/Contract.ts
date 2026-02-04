@@ -1,11 +1,11 @@
-import type { Wallet } from './Wallet';
+import type { Wallet } from '#classes';
 import { hash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { getDebug } from '../utils';
-import config from '../config';
-import { ChainError } from '../errors';
+import { getLogger } from '#utils';
+import config from '#config';
+import { ChainError } from '#errors';
 
-const debug = getDebug('contract');
+const log = getLogger('contract');
 
 type ContractData<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>> = {
   name: string;
@@ -210,7 +210,7 @@ export class Contract<
         get: () => this.getBoundViews(),
       });
       try {
-        debug(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
+        log(`${caller.name} is calling ${this.name}.${<string>name} with args [${args.join(', ')}]`);
         const result = (<any>this.functions[name]).call(functionsContext as FunctionContext<Storage, Views>, ...args);
         let transfers: TransferRequest[] = [];
         if (result?.transfer) {

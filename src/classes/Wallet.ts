@@ -1,8 +1,8 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
-import { cleanKey, currency, getDebug, restoreKey } from '../utils';
-import config from '../config';
+import { cleanKey, currency, getLogger, restoreKey } from '#utils';
+import config from '#config';
 
-const debug = getDebug('wallet');
+const log = getLogger('wallet');
 
 type WalletOptions = {
   name: string;
@@ -24,18 +24,18 @@ export class Wallet {
     });
     this.key = Buffer.from(cleanKey(privateKey)).toString(config.AddressFormat);
     this.address = Buffer.from(cleanKey(publicKey)).toString(config.AddressFormat);
-    debug(`Created wallet '${this.name}'`);
+    log(`Created wallet '${this.name}'`);
   }
 
   updateBalance(amount: number) {
     this.balance += amount;
     const sign = ['-', '+'][+(amount >= 0)];
-    debug(`Balance for ${this.name}: ${sign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
+    log(`Balance for ${this.name}: ${sign}${currency(Math.abs(amount))} (${currency(this.balance)})`);
   }
 
   sign(item: { signature: string; hash: string }) {
     const pem = restoreKey(Buffer.from(this.key, config.AddressFormat).toString('ascii'), 'PRIVATE');
     item.signature = sign('sha256', Buffer.from(item.hash), pem).toString('hex');
-    debug('Item signed');
+    log('Item signed');
   }
 }
