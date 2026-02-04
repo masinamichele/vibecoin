@@ -53,16 +53,16 @@ console.log();
     name: 'VibeToken',
     symbol: 'VTK',
     decimals: 10,
-    totalSupply: 500,
   });
   await chain.deployContract(vibeToken);
   await chain.createBlock();
 
+  await chain.$(alice, vibeToken)('mint')(alice.address, 500);
   await chain.$(alice, vibeToken)('transfer')(bob.address, 10);
   await chain.$(bob, vibeToken)('approve')(charlie.address, 50);
   await chain.$(charlie, vibeToken)('transferFrom')(bob.address, alice.address, 5);
   await chain.createBlock();
-  // console.log(vibeToken.getReadonlyStorageSnapshot());
+  console.log(vibeToken.getReadonlyStorageSnapshot());
 
   /**
    * ERC-721 (non-fungible token) contract usage

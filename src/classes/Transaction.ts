@@ -1,8 +1,7 @@
 import { hash, verify } from 'node:crypto';
 import { Wallet } from './Wallet';
 import config from '../config';
-import { currency, getDebug, Recipient, restoreKey } from '../utils';
-import assert from 'node:assert/strict';
+import { ChainError, currency, getDebug, Recipient, restoreKey } from '../utils';
 import { type CallResult, Contract, ContractFunctions, ContractStorage, ContractViews } from './Contract';
 
 const debug = getDebug('tx');
@@ -57,23 +56,19 @@ export class Transaction<
   constructor(data: TransactionData<S, V, F>) {
     this.type = data.type ?? TransactionType.Transaction;
     this.from = data.from;
-    if (this.type === TransactionType.Transaction) {
-      assert(this.from, 'A transaction must have a valid sender');
-    }
-    if (this.type === TransactionType.ContractDeploy) {
-      assert(data.contract, 'A contract deploy transaction must have a contract');
-    }
+    this.contract = data.contract;
+    if (this.type === TransactionType.Transaction && !this.from) throw new ChainError.MissingData();
+    if (this.type === TransactionType.ContractDeploy && !this.contract) throw new ChainError.MissingData();
     this.to = data.to;
     this.amount = data.amount;
     this.fee = this.type === TransactionType.Transaction ? (data.fee ?? config.DefaultFeePercentage) : 0;
-    this.contract = data.contract;
     this.functionName = data.functionName;
     this.functionArgs = data.functionArgs || [];
     this.gasLimit = data.gasLimit || config.DefaultGasLimit;
 
     if (this.type === TransactionType.ContractCall) {
-      assert(this.contract, 'Contract call must include a contract');
-      assert(this.functionName, 'Contract call must include a function name');
+      if (!this.contract) throw new ChainError.MissingData();
+      if (!this.functionName) throw new ChainError.MissingData();
     }
 
     this.timestamp = Date.now();

@@ -49,4 +49,6 @@ export namespace ChainError {
   export class NonExistentContract extends AutoNamedError {}
   export class DuplicatedContract extends AutoNamedError {}
   export class InvalidSignature extends AutoNamedError {}
+  export class InvalidAmount extends AutoNamedError {}
+  export class Mining extends AutoNamedError {}
 }

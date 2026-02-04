@@ -35,16 +35,12 @@ export default {
           },
           ownerOf(tokenId: string) {
             const owner = this.storage.tokenOwner[tokenId];
-            if (!owner) {
-              throw new ChainError.NonExistentToken('Token ID does not exist');
-            }
+            if (!owner) throw new ChainError.NonExistentToken();
             return owner;
           },
           tokenData(tokenId: string) {
             const data = this.storage.tokenData[tokenId];
-            if (!data) {
-              throw new ChainError.NonExistentToken('Token ID does not exist');
-            }
+            if (!data) throw new ChainError.NonExistentToken();
             return data;
           },
           name() {
@@ -62,15 +58,9 @@ export default {
         },
         functions: {
           mint(to: string, tokenId: string, data: string) {
-            if (!data) {
-              throw new ChainError.MissingData('Token data is required');
-            }
-            if (this.storage.tokenOwner[tokenId]) {
-              throw new ChainError.DuplicatedToken('Token already minted');
-            }
-            if (this.msg.value < this.storage.mintPrice) {
-              throw new ChainError.InsufficientFunds('Insufficient funds');
-            }
+            if (!data) throw new ChainError.MissingData();
+            if (this.storage.tokenOwner[tokenId]) throw new ChainError.DuplicatedToken();
+            if (this.msg.value < this.storage.mintPrice) throw new ChainError.InsufficientFunds();
             this.storage.tokenOwner[tokenId] = to;
             this.storage.tokenData[tokenId] = data;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
@@ -82,16 +72,13 @@ export default {
           },
           transferFrom(from: string, to: string, tokenId: string) {
             const owner = this.views.ownerOf(tokenId);
-            if (owner !== from) {
-              throw new ChainError.Ownership('Not token owner');
-            }
-            if (!to || to === from || to === owner) {
-              throw new ChainError.MissingData('To address is required');
-            }
+            if (owner !== from) throw new ChainError.Ownership();
+            if (!to) throw new ChainError.MissingData();
+            if (to === from || to === owner) throw new ChainError.InvalidData();
             const approvedAddress = this.storage.tokenApprovals[tokenId];
             const isOperator = this.views.isApprovedForAll(from, this.msg.sender);
             if (owner !== this.msg.sender && approvedAddress !== this.msg.sender && !isOperator) {
-              throw new ChainError.Ownership('Not approved');
+              throw new ChainError.Ownership();
             }
             if (approvedAddress) {
               delete this.storage.tokenApprovals[tokenId];
@@ -101,23 +88,16 @@ export default {
             this.storage.tokenOwner[tokenId] = to;
           },
           approve(to: string, tokenId: string) {
-            if (to === this.msg.sender) {
-              throw new ChainError.Ownership('Cannot approve self');
-            }
+            if (to === this.msg.sender) throw new ChainError.Ownership();
             const owner = this.views.ownerOf(tokenId);
             const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);
-            if (owner !== this.msg.sender && !isOperator) {
-              throw new ChainError.Ownership('Not approved');
-            }
-            if (!to || to === owner) {
-              throw new ChainError.MissingData('To address is required');
-            }
+            if (owner !== this.msg.sender && !isOperator) throw new ChainError.Ownership();
+            if (!to) throw new ChainError.MissingData();
+            if (to === owner) throw new ChainError.InvalidData();
             this.storage.tokenApprovals[tokenId] = to;
           },
           setApprovalForAll(operator: string, approved: boolean) {
-            if (operator === this.msg.sender) {
-              throw new ChainError.Ownership('Cannot approve self');
-            }
+            if (operator === this.msg.sender) throw new ChainError.Ownership();
             const owner = this.msg.sender;
             if (!this.storage.operatorApprovals[owner]) {
               this.storage.operatorApprovals[owner] = {};

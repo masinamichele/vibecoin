@@ -57,9 +57,7 @@ abstract class BaseBlockchain {
   }
 
   async deployContract(contract: Contract<any, any, any>) {
-    if (this.contracts.has(contract.address)) {
-      throw new ChainError.DuplicatedContract();
-    }
+    if (this.contracts.has(contract.address)) throw new ChainError.DuplicatedContract();
 
     const codeSize = contract.getCodeSize();
     const deployFee = config.ContractDeployBaseFee + config.ContractDeployPerByteFee * codeSize;
@@ -98,18 +96,10 @@ abstract class BaseBlockchain {
   }
 
   async addTransaction(transaction: Transaction) {
-    if (!transaction.from || !transaction.to) {
-      throw new ChainError.MissingData();
-    }
-    if (transaction.from.address === transaction.to.address) {
-      throw new ChainError.InvalidData();
-    }
-    if (transaction.type === TransactionType.Transaction) {
-      throw new ChainError.InvalidData();
-    }
-    if (!transaction.verify()) {
-      throw new ChainError.InvalidSignature();
-    }
+    if (!transaction.from || !transaction.to) throw new ChainError.MissingData();
+    if (transaction.from.address === transaction.to.address) throw new ChainError.InvalidData();
+    if (transaction.type === TransactionType.Transaction && transaction.amount <= 0) throw new ChainError.InvalidData();
+    if (!transaction.verify()) throw new ChainError.InvalidSignature();
 
     this.mempool.push(transaction);
   }
@@ -160,9 +150,7 @@ abstract class BaseBlockchain {
   ) {
     return (name: Exclude<keyof F, '__init__'>, { value = 0, gasLimit = config.DefaultGasLimit } = {}) => {
       return (...args: any[]) => {
-        if (!this.contracts.has(contract.address)) {
-          throw new ChainError.NonExistentContract();
-        }
+        if (!this.contracts.has(contract.address)) throw new ChainError.NonExistentContract();
         const callTransaction = new Transaction({
           from: sender,
           to: contract,
@@ -497,9 +485,7 @@ export namespace Blockchain {
     }
 
     async stake(staker: Wallet, amount: number) {
-      if (amount <= 0) {
-        throw new ChainError.InvalidData();
-      }
+      if (amount <= 0) throw new ChainError.InvalidAmount();
       const stakeTransaction = new Transaction({
         type: TransactionType.Stake,
         from: staker,
@@ -510,13 +496,9 @@ export namespace Blockchain {
     }
 
     async unstake(staker: Wallet, amount: number) {
-      if (amount <= 0) {
-        throw new ChainError.InvalidData();
-      }
+      if (amount <= 0) throw new ChainError.InvalidAmount();
       const currentStake = this.stakers.get(staker) ?? 0;
-      if (currentStake < amount) {
-        throw new ChainError.InsufficientFunds();
-      }
+      if (currentStake < amount) throw new ChainError.InsufficientFunds();
       const unstakeTransaction = new Transaction({
         type: TransactionType.Unstake,
         from: this.drain,

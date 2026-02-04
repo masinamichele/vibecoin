@@ -4,7 +4,7 @@ import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import config from '../config';
-import { Consensus, getDebug, restoreKey } from '../utils';
+import { ChainError, Consensus, getDebug, restoreKey } from '../utils';
 import { Wallet } from './Wallet';
 
 const debug = getDebug('block');
@@ -34,7 +34,7 @@ export class Block {
 
   constructor(block: BlockData) {
     this.data = block.data;
-    assert(this.data.length > 0, 'A block must contain at least one transaction');
+    if (this.data?.length) throw new ChainError.InvalidData();
     this.previousHash = block.previousHash;
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
@@ -96,16 +96,13 @@ export class Block {
   validate(consensus: Consensus) {
     if (this.hash !== this.generateHash()) return false;
 
-    if (consensus === Consensus.ProofOfWork) {
-      return this.created && this.getHashDifficulty() >= this.difficulty;
+    switch (consensus) {
+      case Consensus.ProofOfWork:
+        return this.created && this.getHashDifficulty() >= this.difficulty;
+      case Consensus.ProofOfStake:
+        if (!this.signature || !this.validator) return false;
+        return this.verify();
     }
-
-    if (consensus === Consensus.ProofOfStake) {
-      if (!this.signature || !this.validator) return false;
-      return this.verify();
-    }
-
-    throw new Error('Invalid consensus type');
   }
 
   async mine(difficulty: number) {
@@ -130,7 +127,7 @@ export class Block {
         new Promise((resolve, reject) => {
           miner.on('message', (data: BlockMiningResult & { success: boolean }) => {
             if (data.success) resolve(data);
-            else reject(new Error('Block mining failed'));
+            else reject(new ChainError.Mining());
           });
         }),
       );
@@ -146,7 +143,7 @@ export class Block {
       this.mineTime = Date.now() - start;
       debug(`Block mining finished, nonce: ${this.nonce}, took ${this.mineTime}ms`);
     } catch {
-      throw new RangeError('Block mining failed for every worker');
+      throw new ChainError.Mining();
     }
   }
 }

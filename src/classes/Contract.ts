@@ -105,9 +105,7 @@ export class Contract<
 
   private useGas(amount: number) {
     this.gasUsed += amount;
-    if (this.gasUsed > this.gasLimit) {
-      throw new ChainError.OutOfGas(`Contract '${this.name}' out of gas`);
-    }
+    if (this.gasUsed > this.gasLimit) throw new ChainError.OutOfGas(this.name);
   }
 
   getCodeSize() {
