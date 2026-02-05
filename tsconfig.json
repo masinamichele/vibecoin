@@ -4,7 +4,7 @@
     "paths": {
       "#config": ["src/config"],
       "#classes": ["src/classes/index"],
-      "#contracts/*": ["src/contracts/*"],
+      "#contracts": ["src/contracts/index"],
       "#utils": ["src/utils"],
       "#errors": ["src/errors"],
       "#types": ["src/types"]
