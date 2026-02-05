@@ -113,7 +113,7 @@ export class Block {
     const threads: Worker[] = [];
     const results: Promise<BlockMiningResult>[] = [];
     for (let i = 0; i < config.BlockMinerPoolSize; i++) {
-      const miner = new Worker(join(__dirname, '../block-miner.worker.js'), {
+      const miner = new Worker(join(import.meta.dirname, '../core/block-miner.worker.js'), {
         workerData: {
           difficulty,
           timestamp: this.timestamp,

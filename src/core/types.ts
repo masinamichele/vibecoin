@@ -1,4 +1,4 @@
-import type { Contract, Wallet } from './classes';
+import type { Contract, Wallet } from '#classes';
 
 export type Recipient = Wallet | Contract<any, any, any>;
 export type Address = string;

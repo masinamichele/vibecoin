@@ -5,9 +5,9 @@
       "#config": ["src/config"],
       "#classes": ["src/classes/index"],
       "#contracts": ["src/contracts/index"],
-      "#utils": ["src/utils"],
-      "#errors": ["src/errors"],
-      "#types": ["src/types"]
+      "#utils": ["src/core/utils"],
+      "#errors": ["src/core/errors"],
+      "#types": ["src/core/types"]
     },
     "rootDir": "./src",
     "outDir": "./dist",

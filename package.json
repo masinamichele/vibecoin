@@ -8,9 +8,9 @@
     "#config": "./dist/config.js",
     "#classes": "./dist/classes/index.js",
     "#contracts": "./dist/contracts/index.js",
-    "#utils": "./dist/utils.js",
-    "#errors": "./dist/errors.js",
-    "#types": "./dist/types.js"
+    "#utils": "./dist/core/utils.js",
+    "#errors": "./dist/core/errors.js",
+    "#types": "./dist/core/types.js"
   },
   "scripts": {
     "build": "tsc",
