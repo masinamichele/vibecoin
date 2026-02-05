@@ -10,19 +10,19 @@ console.log(`${config.CurrencySymbol} ${config.CurrencyName} Blockchain`);
 console.log();
 
 /**
- * Blockchain initialization
- */
-
-const chain = new Blockchain.ProofOfStake();
-await chain.init();
-
-/**
  * Wallets creation
  */
 
 const alice = new Wallet({ name: 'Alice' });
 const bob = new Wallet({ name: 'Bob' });
 const charlie = new Wallet({ name: 'Charlie' });
+
+/**
+ * Blockchain initialization
+ */
+
+const chain = new Blockchain.ProofOfStake();
+await chain.init();
 
 /**
  * Basic funding transactions

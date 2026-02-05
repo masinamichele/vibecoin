@@ -28,4 +28,6 @@ export namespace ChainError {
   export class InvalidAmount extends AutoNamedError {}
 
   export class Mining extends AutoNamedError {}
+
+  export class InvalidBlock extends AutoNamedError {}
 }

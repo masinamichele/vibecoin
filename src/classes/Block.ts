@@ -101,6 +101,7 @@ export class Block {
       case Consensus.ProofOfWork:
         return this.created && this.getHashDifficulty() >= this.difficulty;
       case Consensus.ProofOfStake:
+      case Consensus.ProofOfAuthority:
         if (!this.signature || !this.validator) return false;
         return this.verify();
     }

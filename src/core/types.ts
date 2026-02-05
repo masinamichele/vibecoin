@@ -9,4 +9,5 @@ export type TokenData = string;
 export enum Consensus {
   ProofOfWork,
   ProofOfStake,
+  ProofOfAuthority,
 }

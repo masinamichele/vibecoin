@@ -1,12 +1,12 @@
 import {
   Block,
-  Transaction,
-  TransactionType,
-  Wallet,
   Contract,
   type ContractFunctions,
   type ContractStorage,
   type ContractViews,
+  Transaction,
+  TransactionType,
+  Wallet,
 } from '#classes';
 import config from '#config';
 import assert from 'node:assert/strict';
@@ -19,6 +19,10 @@ const log = getLogger('chain');
 
 type PowBlockchainProperties = {
   difficulty: number;
+};
+
+type PoaBlockchainProperties = {
+  authorities: Wallet[];
 };
 
 type CommonBlockCreationCheckpoint = {
@@ -57,8 +61,13 @@ abstract class BaseBlockchain {
   }
 
   protected abstract generateGenesisBlock(): Promise<Block>;
-  protected abstract addBlock(block: Block): void;
   abstract createBlock(...args: any[]): Promise<void>;
+
+  protected addBlock(block: Block) {
+    assert(block.previousHash === this.getLatestBlock().hash, 'Cannot add block with mismatched hash');
+    this.blocks.push(block);
+    log(`Added block, total blocks: ${this.blocks.length}`);
+  }
 
   protected getLatestBlock() {
     return this.blocks.at(-1);
@@ -79,10 +88,14 @@ abstract class BaseBlockchain {
     await this.addTransaction(deployTransaction);
   }
 
-  validateIntegrity(consensus: Consensus) {
+  validateIntegrity(consensus: Consensus, additionalCheckFunction?: (block: Block, index: number) => boolean) {
     for (let i = 1; i < this.blocks.length; i++) {
       const currentBlock = this.blocks[i];
       const previousBlock = this.blocks[i - 1];
+      if (additionalCheckFunction) {
+        const valid = additionalCheckFunction(currentBlock, i);
+        if (!valid) return false;
+      }
       if (!currentBlock.validate(consensus)) {
         return false;
       }
@@ -418,13 +431,11 @@ export namespace Blockchain {
       return block;
     }
 
-    protected addBlock(block: Block) {
+    protected override addBlock(block: Block) {
       assert(block.validate(Consensus.ProofOfWork), 'Block failed PoW validation');
       assert(block.created, 'Cannot add unmined block');
       assert(block.difficulty === this.difficulty, 'Cannot add block with mismatched difficulty');
-      assert(block.previousHash === this.getLatestBlock().hash, 'Cannot add block with mismatched hash');
-      this.blocks.push(block);
-      log(`Added block, total blocks: ${this.blocks.length}`);
+      super.addBlock(block);
     }
 
     override async addTransaction(transaction: Transaction) {
@@ -485,11 +496,9 @@ export namespace Blockchain {
       return block;
     }
 
-    protected addBlock(block: Block) {
+    protected override addBlock(block: Block) {
       assert(block.validate(Consensus.ProofOfStake), 'Block failed PoS signature validation');
-      assert(block.previousHash === this.getLatestBlock().hash, 'Cannot add block with mismatched hash');
-      this.blocks.push(block);
-      log(`Added block, total blocks: ${this.blocks.length}`);
+      super.addBlock(block);
     }
 
     async stake(staker: Wallet, amount: number) {
@@ -590,11 +599,70 @@ export namespace Blockchain {
     }
   }
 
-  //@ts-ignore
   export class ProofOfAuthority extends BaseBlockchain {
-    constructor() {
+    private readonly authorities: Wallet[];
+
+    constructor(properties: PoaBlockchainProperties) {
       super();
-      throw new Error('Not yet implemented');
+      this.authorities = properties.authorities;
+      if (!this.authorities?.length) throw new ChainError.MissingData();
+      log(`Initializing ${config.CurrencyName} Proof-of-Authority blockchain`);
+    }
+
+    private getNextValidator() {
+      const nextValidatorIndex = this.blocks.length % this.authorities.length;
+      return this.authorities[nextValidatorIndex];
+    }
+
+    override async addTransaction(transaction: Transaction) {
+      await super.addTransaction(transaction);
+      if (this.mempool.length >= config.MaxPendingTransactions) {
+        log('Pending transaction pool size limit reached, scheduling auto-validation');
+        clearTimeout(this.autoAddBlockSchedule);
+        this.autoAddBlockSchedule = setTimeout(() => this.createBlock(), config.AutoCreateBlockDelaySeconds * 1000);
+      }
+    }
+
+    override validateIntegrity() {
+      return super.validateIntegrity(Consensus.ProofOfAuthority, (block, i) => {
+        const expectedValidator = this.authorities[i % this.authorities.length];
+        return block.validator.address === expectedValidator.address;
+      });
+    }
+
+    protected async generateGenesisBlock() {
+      assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
+      const genesisTransaction = new Transaction({
+        from: null,
+        to: this.faucet,
+        amount: config.GenesisCoinsAmount,
+        type: TransactionType.Genesis,
+      });
+      const block = new Block({
+        data: [genesisTransaction],
+        previousHash: null,
+      });
+      this.faucet.updateBalance(config.GenesisCoinsAmount);
+      return block;
+    }
+
+    protected override addBlock(block: Block) {
+      const expectedValidator = this.getNextValidator();
+      if (block.validator.address !== expectedValidator.address) {
+        throw new ChainError.InvalidBlock();
+      }
+      assert(block.validate(Consensus.ProofOfAuthority), 'Block failed PoA signature validation');
+      super.addBlock(block);
+    }
+
+    async createBlock() {
+      const validator = this.getNextValidator();
+      log(`${validator.name} is trying to validate ${this.mempool.length} transactions`);
+      const checkpoint = this.commonCreateBlockP1(validator);
+      if (!checkpoint) return;
+      checkpoint.block.sign(validator);
+      this.commonCreateBlockP2(validator, checkpoint);
+      log(`Block created and signed by authority ${validator.name}`);
     }
   }
 }
