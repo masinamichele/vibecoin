@@ -60,7 +60,23 @@ abstract class BaseBlockchain {
     log('Blockchain initialized');
   }
 
-  protected abstract generateGenesisBlock(): Promise<Block>;
+  protected async generateGenesisBlock(afterCreation?: (block: Block) => void | Promise<void>) {
+    assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
+    const genesisTransaction = new Transaction({
+      from: null,
+      to: this.faucet,
+      amount: config.GenesisCoinsAmount,
+      type: TransactionType.Genesis,
+    });
+    const block = new Block({
+      data: [genesisTransaction],
+      previousHash: null,
+    });
+    if (afterCreation) await afterCreation(block);
+    this.faucet.updateBalance(config.GenesisCoinsAmount);
+    return block;
+  }
+
   abstract createBlock(...args: any[]): Promise<void>;
 
   protected addBlock(block: Block) {
@@ -414,21 +430,8 @@ export namespace Blockchain {
       log(`Initializing ${config.CurrencyName} Proof-of-Work blockchain with difficulty ${this.difficulty}`);
     }
 
-    protected async generateGenesisBlock() {
-      assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
-      const genesisTransaction = new Transaction({
-        from: null,
-        to: this.faucet,
-        amount: config.GenesisCoinsAmount,
-        type: TransactionType.Genesis,
-      });
-      const block = new Block({
-        data: [genesisTransaction],
-        previousHash: null,
-      });
-      await block.mine(this.difficulty);
-      this.faucet.updateBalance(config.GenesisCoinsAmount);
-      return block;
+    protected override async generateGenesisBlock() {
+      return super.generateGenesisBlock((block) => block.mine(this.difficulty));
     }
 
     protected override addBlock(block: Block) {
@@ -478,22 +481,6 @@ export namespace Blockchain {
     constructor() {
       super();
       log(`Initializing ${config.CurrencyName} Proof-of-Stake blockchain`);
-    }
-
-    protected async generateGenesisBlock() {
-      assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
-      const genesisTransaction = new Transaction({
-        from: null,
-        to: this.faucet,
-        amount: config.GenesisCoinsAmount,
-        type: TransactionType.Genesis,
-      });
-      const block = new Block({
-        data: [genesisTransaction],
-        previousHash: null,
-      });
-      this.faucet.updateBalance(config.GenesisCoinsAmount);
-      return block;
     }
 
     protected override addBlock(block: Block) {
@@ -628,22 +615,6 @@ export namespace Blockchain {
         const expectedValidator = this.authorities[i % this.authorities.length];
         return block.validator.address === expectedValidator.address;
       });
-    }
-
-    protected async generateGenesisBlock() {
-      assert(!this.initialized, 'Cannot generate genesis block on initialized blockchain');
-      const genesisTransaction = new Transaction({
-        from: null,
-        to: this.faucet,
-        amount: config.GenesisCoinsAmount,
-        type: TransactionType.Genesis,
-      });
-      const block = new Block({
-        data: [genesisTransaction],
-        previousHash: null,
-      });
-      this.faucet.updateBalance(config.GenesisCoinsAmount);
-      return block;
     }
 
     protected override addBlock(block: Block) {
