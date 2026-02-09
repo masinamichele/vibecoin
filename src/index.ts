@@ -71,6 +71,7 @@ const vibeNft = ERC721.new(alice, {
   symbol: 'VTX',
   mintPrice: 10,
   beneficiary: charlie,
+  royaltyFraction: 0.05,
 });
 await chain.deployContract(vibeNft);
 await chain.createBlock();

@@ -2,6 +2,7 @@ import { Contract, type Wallet, createContractCode, type Nft } from '#classes';
 import type { Address, Amount, TokenData, TokenId } from '#types';
 import { ChainError } from '#errors';
 
+// Standard ERC-721 contract, including EIP-2981
 export default {
   new(
     owner: Wallet,
@@ -10,6 +11,7 @@ export default {
       symbol: string;
       mintPrice: number;
       beneficiary: Wallet;
+      royaltyFraction: number;
     },
   ) {
     return new Contract({
@@ -21,6 +23,7 @@ export default {
           symbol: options.symbol,
           mintPrice: options.mintPrice,
           beneficiary: options.beneficiary,
+          royaltyFraction: options.royaltyFraction,
           totalSupply: 0,
           tokenOwner: {} as Record<TokenId, Address>,
           tokenData: {} as Record<TokenId, TokenData>,
@@ -53,6 +56,14 @@ export default {
           },
           isApprovedForAll(owner: string, operator: string) {
             return this.storage.operatorApprovals[owner]?.[operator] ?? false;
+          },
+          royaltyInfo(tokenId: string, salePrice: number) {
+            const owner = this.storage.tokenOwner[tokenId];
+            if (!owner) throw new ChainError.NonExistentToken();
+            return {
+              receiver: this.storage.beneficiary.address,
+              royaltyAmount: salePrice * this.storage.royaltyFraction,
+            };
           },
         },
         functions: {
