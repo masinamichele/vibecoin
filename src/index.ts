@@ -1,7 +1,7 @@
-import { Blockchain, Transaction, Wallet } from '#classes';
+import { Blockchain, Nft, Transaction, Wallet } from '#classes';
 import config from '#config';
 import { currency, getLogger } from '#utils';
-import { Token, Nft } from '#contracts';
+import { ERC20, ERC721 } from '#contracts';
 
 const log = getLogger('main');
 
@@ -47,7 +47,7 @@ await chain.createBlock();
  * ERC-20 (fungible token) contract usage
  */
 
-const vibeToken = Token.createContract(alice, {
+const vibeToken = ERC20.new(alice, {
   name: 'VibeToken',
   symbol: 'VTK',
   decimals: 10,
@@ -66,20 +66,21 @@ await chain.createBlock();
  * ERC-721 (non-fungible token) contract usage
  */
 
-const nft = Nft.createContract(alice, {
+const vibeNft = ERC721.new(alice, {
   name: 'VibeNFT',
   symbol: 'VTX',
   mintPrice: 10,
   beneficiary: charlie,
 });
-await chain.deployContract(nft);
+await chain.deployContract(vibeNft);
 await chain.createBlock();
 
-await chain.$(alice, nft)('mint', { value: 10 })(alice.address, 'nft-001', 'Hello, World!');
-await chain.$(alice, nft)('approve')(bob.address, 'nft-001');
-await chain.$(bob, nft)('transferFrom')(alice.address, charlie.address, 'nft-001');
-await chain.$(charlie, nft)('setApprovalForAll')(alice.address, true);
-await chain.$(alice, nft)('transferFrom')(charlie.address, bob.address, 'nft-001');
+const nft = new Nft({ data: 'Hello, World!' });
+await chain.$(alice, vibeNft)('mint', { value: 10 })(alice.address, nft);
+await chain.$(alice, vibeNft)('approve')(bob.address, nft);
+await chain.$(bob, vibeNft)('transferFrom')(alice.address, charlie.address, nft);
+await chain.$(charlie, vibeNft)('setApprovalForAll')(alice.address, true);
+await chain.$(alice, vibeNft)('transferFrom')(charlie.address, bob.address, nft);
 await chain.createBlock();
 // console.log(nft.getReadonlyStorageSnapshot());
 

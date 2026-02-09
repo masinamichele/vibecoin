@@ -1,2 +1,2 @@
-export { default as Token } from './Token.contract.js';
-export { default as Nft } from './Nft.contract.js';
+export { default as ERC20 } from './ERC20.js';
+export { default as ERC721 } from './ERC721.js';

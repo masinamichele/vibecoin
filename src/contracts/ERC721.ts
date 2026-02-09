@@ -1,10 +1,9 @@
-import { Contract, type Wallet, createContractCode } from '#classes';
+import { Contract, type Wallet, createContractCode, type Nft } from '#classes';
 import type { Address, Amount, TokenData, TokenId } from '#types';
 import { ChainError } from '#errors';
 
-// Standard ERC-721 Contract
 export default {
-  createContract(
+  new(
     owner: Wallet,
     options: {
       name: string;
@@ -57,12 +56,12 @@ export default {
           },
         },
         functions: {
-          mint(to: string, tokenId: string, data: string) {
-            if (!data) throw new ChainError.MissingData();
-            if (this.storage.tokenOwner[tokenId]) throw new ChainError.DuplicatedToken();
+          mint(to: string, nft: Nft) {
+            if (!nft.data) throw new ChainError.MissingData();
+            if (this.storage.tokenOwner[nft.id]) throw new ChainError.DuplicatedToken();
             if (this.msg.value < this.storage.mintPrice) throw new ChainError.InsufficientFunds();
-            this.storage.tokenOwner[tokenId] = to;
-            this.storage.tokenData[tokenId] = data;
+            this.storage.tokenOwner[nft.id] = to;
+            this.storage.tokenData[nft.id] = nft.data;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
             this.storage.totalSupply++;
 
@@ -70,31 +69,31 @@ export default {
             const feeRecipient = isSenderBeneficiary ? this.env.drain : this.storage.beneficiary;
             return { transfer: { to: feeRecipient, amount: this.msg.value } };
           },
-          transferFrom(from: string, to: string, tokenId: string) {
-            const owner = this.views.ownerOf(tokenId);
+          transferFrom(from: string, to: string, nft: Nft) {
+            const owner = this.views.ownerOf(nft.id);
             if (owner !== from) throw new ChainError.Ownership();
             if (!to) throw new ChainError.MissingData();
             if (to === from || to === owner) throw new ChainError.InvalidData();
-            const approvedAddress = this.storage.tokenApprovals[tokenId];
+            const approvedAddress = this.storage.tokenApprovals[nft.id];
             const isOperator = this.views.isApprovedForAll(from, this.msg.sender);
             if (owner !== this.msg.sender && approvedAddress !== this.msg.sender && !isOperator) {
               throw new ChainError.Ownership();
             }
             if (approvedAddress) {
-              delete this.storage.tokenApprovals[tokenId];
+              delete this.storage.tokenApprovals[nft.id];
             }
             this.storage.ownerTokenCount[from]--;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
-            this.storage.tokenOwner[tokenId] = to;
+            this.storage.tokenOwner[nft.id] = to;
           },
-          approve(to: string, tokenId: string) {
+          approve(to: string, nft: Nft) {
             if (to === this.msg.sender) throw new ChainError.Ownership();
-            const owner = this.views.ownerOf(tokenId);
+            const owner = this.views.ownerOf(nft.id);
             const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);
             if (owner !== this.msg.sender && !isOperator) throw new ChainError.Ownership();
             if (!to) throw new ChainError.MissingData();
             if (to === owner) throw new ChainError.InvalidData();
-            this.storage.tokenApprovals[tokenId] = to;
+            this.storage.tokenApprovals[nft.id] = to;
           },
           setApprovalForAll(operator: string, approved: boolean) {
             if (operator === this.msg.sender) throw new ChainError.Ownership();
