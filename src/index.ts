@@ -1,4 +1,4 @@
-import { Blockchain, Nft, Transaction, Wallet } from '#classes';
+import { Blockchain, Transaction, Wallet, nft } from '#classes';
 import config from '#config';
 import { currency, getLogger } from '#utils';
 import { ERC20, ERC721 } from '#contracts';
@@ -76,12 +76,12 @@ const vibeNft = ERC721.new(alice, {
 await chain.deployContract(vibeNft);
 await chain.createBlock();
 
-const nft = new Nft({ data: 'Hello, World!' });
-await chain.$(alice, vibeNft)('mint', { value: 10 })(alice.address, nft);
-await chain.$(alice, vibeNft)('approve')(bob.address, nft);
-await chain.$(bob, vibeNft)('transferFrom')(alice.address, charlie.address, nft);
+const theFirstNft = nft`Hello, World!`;
+await chain.$(alice, vibeNft)('mint', { value: 10 })(alice.address, theFirstNft);
+await chain.$(alice, vibeNft)('approve')(bob.address, theFirstNft);
+await chain.$(bob, vibeNft)('transferFrom')(alice.address, charlie.address, theFirstNft);
 await chain.$(charlie, vibeNft)('setApprovalForAll')(alice.address, true);
-await chain.$(alice, vibeNft)('transferFrom')(charlie.address, bob.address, nft);
+await chain.$(alice, vibeNft)('transferFrom')(charlie.address, bob.address, theFirstNft);
 await chain.createBlock();
 // console.log(nft.getReadonlyStorageSnapshot());
 

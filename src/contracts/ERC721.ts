@@ -2,7 +2,7 @@ import { Contract, type Wallet, createContractCode, type Nft } from '#classes';
 import type { Address, Amount, TokenData, TokenId } from '#types';
 import { ChainError } from '#errors';
 
-// Standard ERC-721 contract, including EIP-2981
+// Standard ERC-721 contract, including EIP-2981 and EIP-4907
 export default {
   new(
     owner: Wallet,
@@ -30,6 +30,8 @@ export default {
           ownerTokenCount: {} as Record<Address, Amount>,
           tokenApprovals: {} as Record<TokenId, Address>,
           operatorApprovals: {} as Record<Address, Record<Address, boolean>>,
+          tokenUsers: {} as Record<TokenId, Address>,
+          userExpires: {} as Record<TokenId, number>,
         },
         views: {
           balanceOf(address: string) {
@@ -64,6 +66,14 @@ export default {
               receiver: this.storage.beneficiary.address,
               royaltyAmount: salePrice * this.storage.royaltyFraction,
             };
+          },
+          userOf(tokenId: string) {
+            const expires = this.storage.userExpires[tokenId];
+            if (!expires || expires < Date.now()) return null;
+            return this.storage.tokenUsers[tokenId] ?? null;
+          },
+          userExpires(tokenId: string) {
+            return this.storage.userExpires[tokenId] ?? null;
           },
         },
         functions: {
@@ -113,6 +123,16 @@ export default {
               this.storage.operatorApprovals[owner] = {};
             }
             this.storage.operatorApprovals[owner][operator] = approved;
+          },
+          setUser(user: Wallet, expires: number, nft: Nft) {
+            const owner = this.views.ownerOf(nft.id);
+            const approvedAddress = this.storage.tokenApprovals[nft.id];
+            const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);
+            if (owner !== this.msg.sender && approvedAddress !== this.msg.sender && !isOperator) {
+              throw new ChainError.Ownership();
+            }
+            this.storage.tokenUsers[nft.id] = user.address;
+            this.storage.userExpires[nft.id] = expires;
           },
         },
       }),

@@ -15,3 +15,5 @@ export class Nft {
     this.id = hash('sha256', this.data);
   }
 }
+
+export const nft = (data: TemplateStringsArray) => new Nft({ data: data[0] });
