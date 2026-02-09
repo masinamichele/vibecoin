@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import config from '#config';
 import { getLogger, restoreKey } from '#utils';
 import { ChainError } from '#errors';
-import { Consensus } from '#types';
+import { Consensus, Signable } from '#types';
 import { MINE_BLOCK, SIGN_BLOCK, SIGN_ITEM } from '#sym';
 
 const log = getLogger('block');
@@ -18,7 +18,7 @@ type BlockData = {
 
 type BlockMiningResult = { nonce: number; hash: string };
 
-export class Block {
+export class Block implements Signable {
   hash: string = null;
   readonly previousHash: string;
 
@@ -31,7 +31,7 @@ export class Block {
   validator: Wallet = null;
 
   readonly data: Transaction[];
-  private readonly timestamp: number;
+  readonly timestamp: number;
   private readonly root: string;
 
   constructor(block: BlockData) {

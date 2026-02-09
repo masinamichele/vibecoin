@@ -1,6 +1,3 @@
-import type { Contract, Wallet } from '#classes';
-
-export type Recipient = Wallet | Contract<any, any, any>;
 export type Address = string;
 export type Amount = number;
 export type TokenId = string;
@@ -10,4 +7,18 @@ export enum Consensus {
   ProofOfWork,
   ProofOfStake,
   ProofOfAuthority,
+}
+
+export interface Recipient {
+  readonly address: string;
+  readonly name: string;
+}
+
+export interface Hashable {
+  readonly hash: string;
+  readonly timestamp: number;
+}
+
+export interface Signable extends Hashable {
+  signature: string;
 }

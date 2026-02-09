@@ -5,6 +5,7 @@ import { getLogger } from '#utils';
 import config from '#config';
 import { ChainError } from '#errors';
 import { CALL_CONTRACT, INITIALIZE_CONTRACT, REVERT_CONTRACT_STATE, TAKE_CONTRACT_SNAPSHOT } from '#sym';
+import type { Recipient } from '#types';
 
 const log = getLogger('contract');
 
@@ -63,7 +64,7 @@ export class Contract<
   Storage extends ContractStorage,
   Views extends ContractViews<Storage>,
   Functions extends ContractFunctions<Storage, Views>,
-> {
+> implements Recipient {
   readonly name: string;
   readonly creator: Wallet;
   private readonly deployedAt: number;

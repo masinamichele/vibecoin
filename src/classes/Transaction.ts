@@ -9,7 +9,7 @@ import {
   type ContractStorage,
   type ContractViews,
 } from '#classes';
-import type { Recipient } from '#types';
+import type { Recipient, Signable } from '#types';
 import { ChainError } from '#errors';
 import { SIGN_ITEM } from '#sym';
 
@@ -44,7 +44,7 @@ export class Transaction<
   S extends ContractStorage = any,
   V extends ContractViews<S> = any,
   F extends ContractFunctions<S, V> = any,
-> {
+> implements Signable {
   readonly from: Recipient;
   readonly to: Recipient;
   readonly amount: number;
