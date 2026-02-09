@@ -25,7 +25,7 @@ type PoaBlockchainProperties = {
   authorities: Wallet[];
 };
 
-type CommonBlockCreationCheckpoint = {
+type BlockCreationCheckpoint = {
   block: Block;
   rewardTransaction: Transaction;
   feesTransaction: Transaction;
@@ -204,7 +204,7 @@ abstract class BaseBlockchain {
     };
   }
 
-  protected commonCreateBlockP1(rewardWallet: Wallet): CommonBlockCreationCheckpoint {
+  protected assembleBlock(rewardWallet: Wallet): BlockCreationCheckpoint {
     if (!this.mempool.length) {
       log('No transactions to handle');
       return null;
@@ -245,9 +245,9 @@ abstract class BaseBlockchain {
     return { block, rewardTransaction, feesTransaction, handledTransactions };
   }
 
-  protected commonCreateBlockP2(
+  protected sealBlock(
     rewardWallet: Wallet,
-    { block, rewardTransaction, feesTransaction, handledTransactions }: CommonBlockCreationCheckpoint,
+    { block, rewardTransaction, feesTransaction, handledTransactions }: BlockCreationCheckpoint,
   ) {
     rewardWallet.updateBalance(rewardTransaction.amount);
     rewardWallet.updateBalance(feesTransaction.amount);
@@ -466,12 +466,12 @@ export namespace Blockchain {
         this.autoAddBlockSchedule = null;
       }
 
-      const checkpoint = this.commonCreateBlockP1(rewardWallet);
+      const checkpoint = this.assembleBlock(rewardWallet);
       if (!checkpoint) return;
 
       await checkpoint.block.mine(this.difficulty);
 
-      this.commonCreateBlockP2(rewardWallet, checkpoint);
+      this.sealBlock(rewardWallet, checkpoint);
     }
   }
 
@@ -557,12 +557,12 @@ export namespace Blockchain {
         this.autoAddBlockSchedule = null;
       }
 
-      const checkpoint = this.commonCreateBlockP1(rewardWallet);
+      const checkpoint = this.assembleBlock(rewardWallet);
       if (!checkpoint) return;
 
       checkpoint.block.sign(rewardWallet);
 
-      this.commonCreateBlockP2(rewardWallet, checkpoint);
+      this.sealBlock(rewardWallet, checkpoint);
     }
 
     override executeTransaction(
@@ -629,10 +629,10 @@ export namespace Blockchain {
     async createBlock() {
       const validator = this.getNextValidator();
       log(`${validator.name} is trying to validate ${this.mempool.length} transactions`);
-      const checkpoint = this.commonCreateBlockP1(validator);
+      const checkpoint = this.assembleBlock(validator);
       if (!checkpoint) return;
       checkpoint.block.sign(validator);
-      this.commonCreateBlockP2(validator, checkpoint);
+      this.sealBlock(validator, checkpoint);
       log(`Block created and signed by authority ${validator.name}`);
     }
   }
