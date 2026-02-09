@@ -7,6 +7,7 @@ import config from '#config';
 import { getLogger, restoreKey } from '#utils';
 import { ChainError } from '#errors';
 import { Consensus } from '#types';
+import { MINE_BLOCK, SIGN_BLOCK, SIGN_ITEM } from '#sym';
 
 const log = getLogger('block');
 
@@ -78,9 +79,9 @@ export class Block {
     return counter;
   }
 
-  sign(validator: Wallet) {
+  [SIGN_BLOCK](validator: Wallet) {
     this.validator = validator;
-    validator.sign(this);
+    validator[SIGN_ITEM](this);
   }
 
   private verify() {
@@ -107,7 +108,7 @@ export class Block {
     }
   }
 
-  async mine(difficulty: number) {
+  async [MINE_BLOCK](difficulty: number) {
     assert(!this.created, 'Cannot mine mined block');
     log(`Block mining started, using ${config.BlockMinerPoolSize} workers`);
     const start = Date.now();

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { getLogger } from '#utils';
 import config from '#config';
 import { ChainError } from '#errors';
+import { CALL_CONTRACT, INITIALIZE_CONTRACT, REVERT_CONTRACT_STATE, TAKE_CONTRACT_SNAPSHOT } from '#sym';
 
 const log = getLogger('contract');
 
@@ -91,10 +92,10 @@ export class Contract<
     this.address = this.generateHash();
   }
 
-  initialize() {
+  [INITIALIZE_CONTRACT]() {
     assert(!this.initialized, 'Contract already initialized');
     if ((<any>this.functions)['__init__']) {
-      (<any>this.call(this.creator))('__init__');
+      (<any>this[CALL_CONTRACT](this.creator))('__init__');
     }
     this.initialized = true;
   }
@@ -153,11 +154,11 @@ export class Contract<
     });
   }
 
-  takeStateSnapshot() {
+  [TAKE_CONTRACT_SNAPSHOT]() {
     this.storageSnapshot = structuredClone(this.storage);
   }
 
-  revert() {
+  [REVERT_CONTRACT_STATE]() {
     if (this.storageSnapshot) {
       this.storage = structuredClone(this.storageSnapshot);
     }
@@ -176,7 +177,7 @@ export class Contract<
     return this.deepFreeze(structuredClone(this.storage));
   }
 
-  private call(
+  [CALL_CONTRACT](
     caller: { address: string; name: string },
     {
       value = 0,

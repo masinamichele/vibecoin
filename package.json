@@ -10,7 +10,8 @@
     "#contracts": "./dist/contracts/index.js",
     "#utils": "./dist/core/utils.js",
     "#errors": "./dist/core/errors.js",
-    "#types": "./dist/core/types.js"
+    "#types": "./dist/core/types.js",
+    "#sym": "./dist/core/symbols.js"
   },
   "scripts": {
     "build": "tsc",

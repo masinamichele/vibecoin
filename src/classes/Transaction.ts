@@ -11,6 +11,7 @@ import {
 } from '#classes';
 import type { Recipient } from '#types';
 import { ChainError } from '#errors';
+import { SIGN_ITEM } from '#sym';
 
 const log = getLogger('tx');
 
@@ -94,7 +95,7 @@ export class Transaction<
       log(`Percentage transaction fee: ${this.fee * 100}% (${currency(this.amount * this.fee)})`);
       log(`Total transaction amount: ${currency(this.amount + this.amount * this.fee + config.FixedTransactionFee)}`);
       if (this.from instanceof Wallet) {
-        this.from.sign(this);
+        this.from[SIGN_ITEM](this);
       }
     } else if (this.type === TransactionType.Genesis) {
       log(`Materialized ${currency(this.amount)} to ${this.to.name} (${this.type})`);

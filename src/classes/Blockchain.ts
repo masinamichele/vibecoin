@@ -14,6 +14,15 @@ import { getLogger } from '#utils';
 import { ChainError } from '#errors';
 import { type Amount, Consensus, type Recipient } from '#types';
 import { getRandomValues } from 'node:crypto';
+import {
+  CALL_CONTRACT,
+  INITIALIZE_CONTRACT,
+  MINE_BLOCK,
+  REVERT_CONTRACT_STATE,
+  SIGN_BLOCK,
+  TAKE_CONTRACT_SNAPSHOT,
+  UPDATE_WALLET_BALANCE,
+} from '#sym';
 
 const log = getLogger('chain');
 
@@ -73,7 +82,7 @@ abstract class BaseBlockchain {
       previousHash: null,
     });
     if (afterCreation) await afterCreation(block);
-    this.faucet.updateBalance(config.GenesisCoinsAmount);
+    this.faucet[UPDATE_WALLET_BALANCE](config.GenesisCoinsAmount);
     return block;
   }
 
@@ -249,22 +258,22 @@ abstract class BaseBlockchain {
     rewardWallet: Wallet,
     { block, rewardTransaction, feesTransaction, handledTransactions }: BlockCreationCheckpoint,
   ) {
-    rewardWallet.updateBalance(rewardTransaction.amount);
-    rewardWallet.updateBalance(feesTransaction.amount);
+    rewardWallet[UPDATE_WALLET_BALANCE](rewardTransaction.amount);
+    rewardWallet[UPDATE_WALLET_BALANCE](feesTransaction.amount);
     for (const transaction of handledTransactions) {
       if (transaction.type === TransactionType.GasOnly) {
         if (transaction.from instanceof Wallet) {
           const gasCost = transaction.gasUsed * config.GasPrice;
-          transaction.from.updateBalance(-gasCost);
+          transaction.from[UPDATE_WALLET_BALANCE](-gasCost);
         }
         continue;
       }
 
       if (transaction.from instanceof Wallet) {
-        transaction.from.updateBalance(this.getTotalTransactionAmount(transaction) * -1);
+        transaction.from[UPDATE_WALLET_BALANCE](this.getTotalTransactionAmount(transaction) * -1);
       }
       if (transaction.to instanceof Wallet) {
-        transaction.to.updateBalance(transaction.amount);
+        transaction.to[UPDATE_WALLET_BALANCE](transaction.amount);
       }
     }
 
@@ -370,15 +379,14 @@ abstract class BaseBlockchain {
 
   private executeContractDeployTransaction(transaction: Transaction) {
     this.contracts.add(transaction.contract.address);
-    transaction.contract.initialize();
+    transaction.contract[INITIALIZE_CONTRACT]();
     log(`Contract '${transaction.contract.name}' deployed`);
   }
 
   private preflightContractCallTransaction(transaction: Transaction, runningBalances: Record<string, number>) {
     const contractBalance = runningBalances[transaction.to.address] ?? this.getBalance(transaction.to);
-    transaction.contract.takeStateSnapshot();
-    //@ts-expect-error
-    const result = transaction.contract.call(transaction.from, {
+    transaction.contract[TAKE_CONTRACT_SNAPSHOT]();
+    const result = transaction.contract[CALL_CONTRACT](transaction.from, {
       value: transaction.amount,
       gasLimit: transaction.gasLimit,
       env: { contractBalance, drain: this.drain },
@@ -386,7 +394,7 @@ abstract class BaseBlockchain {
     transaction.gasUsed = result.gasUsed;
     transaction.callResult = result;
     if (!result.success) {
-      transaction.contract.revert();
+      transaction.contract[REVERT_CONTRACT_STATE]();
     }
   }
 
@@ -412,7 +420,7 @@ abstract class BaseBlockchain {
         }
       }
     } else {
-      transaction.contract.revert();
+      transaction.contract[REVERT_CONTRACT_STATE]();
       const s = `! ${transaction.callResult.error.name} in ${transaction.contract.name}.${<string>transaction.functionName}: ${transaction.callResult.error.message}`;
       log(s);
     }
@@ -431,7 +439,7 @@ export namespace Blockchain {
     }
 
     protected override async generateGenesisBlock() {
-      return super.generateGenesisBlock((block) => block.mine(this.difficulty));
+      return super.generateGenesisBlock((block) => block[MINE_BLOCK](this.difficulty));
     }
 
     protected override addBlock(block: Block) {
@@ -469,7 +477,7 @@ export namespace Blockchain {
       const checkpoint = this.assembleBlock(rewardWallet);
       if (!checkpoint) return;
 
-      await checkpoint.block.mine(this.difficulty);
+      await checkpoint.block[MINE_BLOCK](this.difficulty);
 
       this.sealBlock(rewardWallet, checkpoint);
     }
@@ -560,7 +568,7 @@ export namespace Blockchain {
       const checkpoint = this.assembleBlock(rewardWallet);
       if (!checkpoint) return;
 
-      checkpoint.block.sign(rewardWallet);
+      checkpoint.block[SIGN_BLOCK](rewardWallet);
 
       this.sealBlock(rewardWallet, checkpoint);
     }
@@ -631,7 +639,7 @@ export namespace Blockchain {
       log(`${validator.name} is trying to validate ${this.mempool.length} transactions`);
       const checkpoint = this.assembleBlock(validator);
       if (!checkpoint) return;
-      checkpoint.block.sign(validator);
+      checkpoint.block[SIGN_BLOCK](validator);
       this.sealBlock(validator, checkpoint);
       log(`Block created and signed by authority ${validator.name}`);
     }
