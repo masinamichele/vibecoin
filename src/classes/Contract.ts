@@ -137,6 +137,10 @@ export class Contract<
           this.useGas(config.GasCostStorageWrite);
           return Reflect.set(target, prop, value, receiver);
         },
+        deleteProperty: (target, prop) => {
+          if (prop in target) this.useGas(-config.GasRefundStorageDelete);
+          return Reflect.deleteProperty(target, prop);
+        },
       };
     };
     return new Proxy(this.storage, createHandler());

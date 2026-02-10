@@ -29,6 +29,7 @@ export default {
   GasCostContractCall: 21_000,
   GasCostStorageRead: 200,
   GasCostStorageWrite: 5_000,
+  GasRefundStorageDelete: 1_500,
   // Misc configuration
   LogTag: 'vibe',
   AddressFormat: 'ascii' as BufferEncoding,
