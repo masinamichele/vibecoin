@@ -77,7 +77,7 @@ export const ERC721 = {
           },
         },
         functions: {
-          mint(to: string, nft: Nft) {
+          mint(to: Address, nft: Nft) {
             if (!nft.data) throw new ChainError.MissingData();
             if (this.storage.tokenOwner[nft.id]) throw new ChainError.DuplicatedToken();
             if (this.msg.value < this.storage.mintPrice) throw new ChainError.InsufficientFunds();
@@ -85,12 +85,12 @@ export const ERC721 = {
             this.storage.tokenData[nft.id] = nft.data;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
             this.storage.totalSupply++;
-
+            this.emit('Transfer', { from: null, to, tokenId: nft.id });
             const isSenderBeneficiary = this.msg.sender === this.storage.beneficiary.address;
             const feeRecipient = isSenderBeneficiary ? this.env.drain : this.storage.beneficiary;
             return { transfer: { to: feeRecipient, amount: this.msg.value } };
           },
-          transferFrom(from: string, to: string, tokenId: string) {
+          transferFrom(from: Address, to: Address, tokenId: TokenId) {
             const owner = this.views.ownerOf(tokenId);
             if (owner !== from) throw new ChainError.Ownership();
             if (!to) throw new ChainError.MissingData();
@@ -102,12 +102,26 @@ export const ERC721 = {
             }
             if (approvedAddress) {
               delete this.storage.tokenApprovals[tokenId];
+              this.emit('Approval', { owner: this.msg.sender, approved: null, tokenId });
             }
             this.storage.ownerTokenCount[from]--;
             this.storage.ownerTokenCount[to] = this.views.balanceOf(to) + 1;
             this.storage.tokenOwner[tokenId] = to;
+            this.emit('Transfer', { from, to, tokenId });
           },
-          approve(to: string, tokenId: string) {
+          burn(tokenId: TokenId) {
+            const owner = this.views.ownerOf(tokenId);
+            if (owner !== this.msg.sender) throw new ChainError.Ownership();
+            if (this.views.getApproved(tokenId)) {
+              delete this.storage.tokenApprovals[tokenId];
+            }
+            this.storage.ownerTokenCount[owner]--;
+            this.storage.totalSupply--;
+            delete this.storage.tokenOwner[tokenId];
+            delete this.storage.tokenData[tokenId];
+            this.emit('Transfer', { from: owner, to: null, tokenId });
+          },
+          approve(to: Address, tokenId: TokenId) {
             if (to === this.msg.sender) throw new ChainError.Ownership();
             const owner = this.views.ownerOf(tokenId);
             const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);
@@ -115,16 +129,25 @@ export const ERC721 = {
             if (!to) throw new ChainError.MissingData();
             if (to === owner) throw new ChainError.InvalidData();
             this.storage.tokenApprovals[tokenId] = to;
+            this.emit('Approval', { owner: this.msg.sender, approved: to, tokenId });
           },
-          setApprovalForAll(operator: string, approved: boolean) {
+          revokeApproval(tokenId: TokenId) {
+            const owner = this.views.ownerOf(tokenId);
+            if (owner !== this.msg.sender) throw new ChainError.Ownership();
+            if (!this.views.getApproved(tokenId)) throw new ChainError.InvalidData();
+            delete this.storage.tokenApprovals[tokenId];
+            this.emit('Approval', { owner: this.msg.sender, approved: null, tokenId });
+          },
+          setApprovalForAll(operator: Address, approved: boolean) {
             if (operator === this.msg.sender) throw new ChainError.Ownership();
             const owner = this.msg.sender;
             if (!this.storage.operatorApprovals[owner]) {
               this.storage.operatorApprovals[owner] = {};
             }
             this.storage.operatorApprovals[owner][operator] = approved;
+            this.emit('ApprovalForAll', { owner: owner, operator, approved });
           },
-          setUser(user: Wallet, expires: number, tokenId: string) {
+          setUser(user: Wallet, expires: number, tokenId: TokenId) {
             const owner = this.views.ownerOf(tokenId);
             const approvedAddress = this.storage.tokenApprovals[tokenId];
             const isOperator = this.views.isApprovedForAll(owner, this.msg.sender);

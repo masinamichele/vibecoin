@@ -5,7 +5,7 @@ import { getLogger } from '#utils';
 import config from '#config';
 import { ChainError } from '#errors';
 import { CALL_CONTRACT, INITIALIZE_CONTRACT, REVERT_CONTRACT_STATE, TAKE_CONTRACT_SNAPSHOT } from '#sym';
-import type { Recipient } from '#types';
+import type { ContractEvent, Recipient } from '#types';
 
 const log = getLogger('contract');
 
@@ -31,6 +31,7 @@ type FunctionContext<S extends ContractStorage, V extends ContractViews<S>> = Vi
   creator: { address: string };
   address: string;
   env: { contractBalance: number; drain: Wallet };
+  emit: (name: string, data: Record<PropertyKey, any>) => void;
 };
 
 export type ContractStorage = Record<PropertyKey, any>;
@@ -58,6 +59,7 @@ export type CallResult = {
   error?: Error;
   gasUsed: number;
   transfers?: TransferRequest[];
+  events: ContractEvent[];
 };
 
 export class Contract<
@@ -201,12 +203,16 @@ export class Contract<
       this.gasUsed = config.GasCostContractCall;
       this.gasLimit = gasLimit;
 
+      const events: ContractEvent[] = [];
       const functionsContext: Omit<FunctionContext<Storage, Views>, 'views'> = {
         storage: name === '__init__' ? this.storage : this.getStorageProxy(),
         msg: { sender: caller.address, value },
         creator: { address: this.creator.address },
         address: this.address,
         env,
+        emit: (name, data) => {
+          events.push({ contract: this.address, name, data });
+        },
       };
       Object.defineProperty(functionsContext, 'views', {
         get: () => this.getBoundViews(),
@@ -224,6 +230,7 @@ export class Contract<
           result,
           gasUsed: this.gasUsed,
           transfers,
+          events,
         };
       } catch (error: any) {
         return {
@@ -232,6 +239,7 @@ export class Contract<
           gasUsed: error instanceof ChainError.OutOfGas ? this.gasLimit : this.gasUsed,
           error: error,
           transfers: [],
+          events,
         };
       }
     };

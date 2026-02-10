@@ -39,14 +39,14 @@ export const ERC20 = {
             if (!to) throw new ChainError.MissingData();
             this.storage.totalSupply += amount;
             this.storage.balances[to] = this.views.balanceOf(to) + amount;
-            return true;
+            this.emit('Transfer', { from: null, to, value: amount });
           },
           transfer(to: string, amount: number) {
             if (amount <= 0) throw new ChainError.InvalidAmount();
             if (this.views.balanceOf(this.msg.sender) < amount) throw new ChainError.InsufficientFunds();
             this.storage.balances[this.msg.sender] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;
-            return true;
+            this.emit('Transfer', { from: this.msg.sender, to, value: amount });
           },
           transferFrom(from: string, to: string, amount: number) {
             if (amount <= 0) throw new ChainError.InvalidAmount();
@@ -58,12 +58,12 @@ export const ERC20 = {
             this.storage.balances[from] -= amount;
             this.storage.balances[to] = (this.storage.balances[to] ?? 0) + amount;
             this.storage.allowances[from][this.msg.sender] -= amount;
-            return true;
+            this.emit('Transfer', { from, to, value: amount });
           },
           approve(spender: string, amount: number) {
             if (!this.storage.allowances[this.msg.sender]) this.storage.allowances[this.msg.sender] = {};
             this.storage.allowances[this.msg.sender][spender] = this.views.allowance(this.msg.sender, spender) + amount;
-            return true;
+            this.emit('Approval', { owner: this.msg.sender, spender, value: amount });
           },
         },
       }),

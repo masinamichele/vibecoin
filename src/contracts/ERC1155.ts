@@ -48,9 +48,16 @@ export const ERC1155 = {
               this.storage.isNft[tokenId] = def.isNft;
               this.storage.totalSupply[tokenId] = def.supply;
               this.storage.balances[tokenId] = {
-                [this.msg.sender]: def.supply,
+                [this.creator.address]: def.supply,
               };
             }
+            this.emit('TransferBatch', {
+              operator: null,
+              from: null,
+              to: this.creator.address,
+              ids: options.tokens.map((t) => hash('sha256', t.name)),
+              values: options.tokens.map((t) => t.supply),
+            });
           },
           setApprovalForAll(operator: string, approved: boolean) {
             if (operator === this.msg.sender) throw new ChainError.Ownership();
@@ -59,6 +66,7 @@ export const ERC1155 = {
               this.storage.operatorApprovals[owner] = {};
             }
             this.storage.operatorApprovals[owner][operator] = approved;
+            this.emit('ApprovalForAll', { account: owner, operator, approved });
           },
           safeTransferFrom(from: Address, to: Address, tokenId: TokenId, amount: Amount) {
             if (!to) throw new ChainError.MissingData();
@@ -71,6 +79,13 @@ export const ERC1155 = {
             if (this.storage.isNft[tokenId] && amount !== 1) throw new ChainError.InvalidAmount();
             this.storage.balances[tokenId][from] -= amount;
             this.storage.balances[tokenId][to] = this.views.balanceOf(to, tokenId) + amount;
+            this.emit('TransferSingle', {
+              operator: this.msg.sender,
+              from,
+              to,
+              id: tokenId,
+              value: amount,
+            });
           },
           safeBatchTransferFrom(from: Address, to: Address, tokenIds: TokenId[], amounts: Amount[]) {
             if (!to) throw new ChainError.MissingData();
@@ -92,6 +107,13 @@ export const ERC1155 = {
               this.storage.balances[tokenId][from] -= amount;
               this.storage.balances[tokenId][to] = this.views.balanceOf(to, tokenId) + amount;
             }
+            this.emit('TransferBatch', {
+              operator: this.msg.sender,
+              from,
+              to,
+              ids: tokenIds,
+              values: amounts,
+            });
           },
         },
       }),

@@ -5,6 +5,12 @@ export type TokenData = string;
 
 export type ExtraData = Record<PropertyKey, any>;
 
+export interface ContractEvent {
+  contract: Address;
+  name: string;
+  data: Record<PropertyKey, any>;
+}
+
 export enum Consensus {
   ProofOfWork,
   ProofOfStake,
