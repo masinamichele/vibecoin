@@ -3,6 +3,8 @@ export type Amount = number;
 export type TokenId = string;
 export type TokenData = string;
 
+export type ExtraData = Record<PropertyKey, any>;
+
 export enum Consensus {
   ProofOfWork,
   ProofOfStake,

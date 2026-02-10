@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import config from '#config';
 import { getLogger, restoreKey } from '#utils';
 import { ChainError } from '#errors';
-import { Consensus, Signable } from '#types';
+import { Consensus, ExtraData, Signable } from '#types';
 import { MINE_BLOCK, SIGN_BLOCK, SIGN_ITEM } from '#sym';
 
 const log = getLogger('block');
@@ -14,6 +14,8 @@ const log = getLogger('block');
 type BlockData = {
   data: Transaction[];
   previousHash: string;
+  blockNumber: number;
+  extraData?: ExtraData;
 };
 
 type BlockMiningResult = { nonce: number; hash: string };
@@ -21,6 +23,9 @@ type BlockMiningResult = { nonce: number; hash: string };
 export class Block implements Signable {
   hash: string = null;
   readonly previousHash: string;
+
+  readonly blockNumber: number;
+  readonly extraData: Record<PropertyKey, any>;
 
   private nonce = 0;
   created = false;
@@ -41,11 +46,13 @@ export class Block implements Signable {
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
     this.hash = this.generateHash();
+    this.blockNumber = block.blockNumber;
+    this.extraData = block.extraData ?? {};
     log(`Created block with ${this.data.length} transactions (${this.data.map((tx) => tx.type).join('')})`);
   }
 
   private generateHash() {
-    const key = `${this.timestamp}-${this.root}-${this.previousHash}-${this.nonce}`;
+    const key = `${this.timestamp}-${this.blockNumber}-${JSON.stringify(this.extraData)}-${this.root}-${this.previousHash}-${this.nonce}`;
     return hash('sha256', key);
   }
 
@@ -102,9 +109,14 @@ export class Block implements Signable {
       case Consensus.ProofOfWork:
         return this.created && this.getHashDifficulty() >= this.difficulty;
       case Consensus.ProofOfStake:
-      case Consensus.ProofOfAuthority:
         if (!this.signature || !this.validator) return false;
         return this.verify();
+      case Consensus.ProofOfAuthority: {
+        if (!this.signature || !this.validator || !this.extraData.authorities) return false;
+        const expectedValidator = this.extraData.authorities[this.blockNumber % this.extraData.authorities.length];
+        if (this.validator.address !== expectedValidator.address) return false;
+        return this.verify();
+      }
     }
   }
 
@@ -115,7 +127,7 @@ export class Block implements Signable {
     const threads: Worker[] = [];
     const results: Promise<BlockMiningResult>[] = [];
     for (let i = 0; i < config.BlockMinerPoolSize; i++) {
-      const miner = new Worker(join(import.meta.dirname, '../core/block-miner.worker.js'), {
+      const miner = new Worker(join(import.meta.dirname, '../core/miner.worker.js'), {
         workerData: {
           difficulty,
           timestamp: this.timestamp,

@@ -12,7 +12,7 @@ import config from '#config';
 import assert from 'node:assert/strict';
 import { getLogger } from '#utils';
 import { ChainError } from '#errors';
-import { type Amount, Consensus, type Recipient } from '#types';
+import { type Amount, Consensus, ExtraData, type Recipient } from '#types';
 import { getRandomValues } from 'node:crypto';
 import {
   CALL_CONTRACT,
@@ -80,6 +80,7 @@ abstract class BaseBlockchain {
     const block = new Block({
       data: [genesisTransaction],
       previousHash: null,
+      blockNumber: 0,
     });
     if (afterCreation) await afterCreation(block);
     this.faucet[UPDATE_WALLET_BALANCE](config.GenesisCoinsAmount);
@@ -113,14 +114,10 @@ abstract class BaseBlockchain {
     await this.addTransaction(deployTransaction);
   }
 
-  validateIntegrity(consensus: Consensus, additionalCheckFunction?: (block: Block, index: number) => boolean) {
+  validateIntegrity(consensus: Consensus) {
     for (let i = 1; i < this.blocks.length; i++) {
       const currentBlock = this.blocks[i];
       const previousBlock = this.blocks[i - 1];
-      if (additionalCheckFunction) {
-        const valid = additionalCheckFunction(currentBlock, i);
-        if (!valid) return false;
-      }
       if (!currentBlock.validate(consensus)) {
         return false;
       }
@@ -215,7 +212,7 @@ abstract class BaseBlockchain {
     };
   }
 
-  protected assembleBlock(rewardWallet: Wallet): BlockCreationCheckpoint {
+  protected assembleBlock(rewardWallet: Wallet, extraData?: ExtraData): BlockCreationCheckpoint {
     if (!this.mempool.length) {
       log('No transactions to handle');
       return null;
@@ -251,6 +248,8 @@ abstract class BaseBlockchain {
     const block = new Block({
       data: [rewardTransaction, feesTransaction, ...handledTransactions, ...internalTransactions],
       previousHash: this.getLatestBlock().hash,
+      blockNumber: this.blocks.length,
+      extraData,
     });
 
     return { block, rewardTransaction, feesTransaction, handledTransactions };
@@ -598,6 +597,12 @@ export namespace Blockchain {
 
   export class ProofOfAuthority extends BaseBlockchain {
     private readonly authorities: Wallet[];
+    private governance: Contract<any, any, any>;
+
+    private get activeAuthorities(): Wallet[] {
+      if (this.governance) return this.governance.views.getAuthorities();
+      return this.authorities;
+    }
 
     constructor(properties: PoaBlockchainProperties) {
       super();
@@ -606,9 +611,13 @@ export namespace Blockchain {
       log(`Initializing ${config.CurrencyName} Proof-of-Authority blockchain`);
     }
 
+    setGovernanceContract(contract: Contract<any, any, any>) {
+      this.governance = contract;
+    }
+
     private getNextValidator() {
-      const nextValidatorIndex = this.blocks.length % this.authorities.length;
-      return this.authorities[nextValidatorIndex];
+      const nextValidatorIndex = this.blocks.length % this.activeAuthorities.length;
+      return this.activeAuthorities[nextValidatorIndex];
     }
 
     override async addTransaction(transaction: Transaction) {
@@ -621,17 +630,10 @@ export namespace Blockchain {
     }
 
     override validateIntegrity() {
-      return super.validateIntegrity(Consensus.ProofOfAuthority, (block, i) => {
-        const expectedValidator = this.authorities[i % this.authorities.length];
-        return block.validator.address === expectedValidator.address;
-      });
+      return super.validateIntegrity(Consensus.ProofOfAuthority);
     }
 
     protected override addBlock(block: Block) {
-      const expectedValidator = this.getNextValidator();
-      if (block.validator.address !== expectedValidator.address) {
-        throw new ChainError.InvalidBlock();
-      }
       assert(block.validate(Consensus.ProofOfAuthority), 'Block failed PoA signature validation');
       super.addBlock(block);
     }
@@ -639,7 +641,7 @@ export namespace Blockchain {
     async createBlock() {
       const validator = this.getNextValidator();
       log(`${validator.name} is trying to validate ${this.mempool.length} transactions`);
-      const checkpoint = this.assembleBlock(validator);
+      const checkpoint = this.assembleBlock(validator, { authorities: this.activeAuthorities });
       if (!checkpoint) return;
       checkpoint.block[SIGN_BLOCK](validator);
       this.sealBlock(validator, checkpoint);
