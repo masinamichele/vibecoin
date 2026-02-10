@@ -45,10 +45,10 @@ export class Block implements Signable {
     this.previousHash = block.previousHash;
     this.timestamp = Date.now();
     this.root = this.calculateMerkleRoot();
-    this.hash = this.generateHash();
     this.blockNumber = block.blockNumber;
     this.extraData = block.extraData ?? {};
     log(`Created block with ${this.data.length} transactions (${this.data.map((tx) => tx.type).join('')})`);
+    this.hash = this.generateHash();
   }
 
   private generateHash() {
