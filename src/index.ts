@@ -1,4 +1,4 @@
-import { Blockchain, Transaction, Wallet, nft } from '#classes';
+import { Blockchain, Transaction, Wallet, $ } from '#classes';
 import config from '#config';
 import { currency, getLogger } from '#utils';
 import { ERC20, ERC721 } from '#contracts';
@@ -55,10 +55,10 @@ const vibeToken = ERC20.new(alice, {
 await chain.deployContract(vibeToken);
 await chain.createBlock();
 
-await chain.$(alice, vibeToken)('mint')(alice.address, 500);
-await chain.$(alice, vibeToken)('transfer')(bob.address, 10);
-await chain.$(bob, vibeToken)('approve')(charlie.address, 50);
-await chain.$(charlie, vibeToken)('transferFrom')(bob.address, alice.address, 5);
+await chain.contract(vibeToken, alice).fn('mint')(alice.address, 500);
+await chain.contract(vibeToken, alice).fn('transfer')(bob.address, 10);
+await chain.contract(vibeToken, bob).fn('approve')(charlie.address, 50);
+await chain.contract(vibeToken, charlie).fn('transferFrom')(bob.address, alice.address, 5);
 await chain.createBlock();
 // console.log(vibeToken.getReadonlyStorageSnapshot());
 
@@ -76,12 +76,12 @@ const vibeNft = ERC721.new(alice, {
 await chain.deployContract(vibeNft);
 await chain.createBlock();
 
-const theFirstNft = nft`Hello, World!`;
-await chain.$(alice, vibeNft)('mint', { value: 10 })(alice.address, theFirstNft);
-await chain.$(alice, vibeNft)('approve')(bob.address, theFirstNft);
-await chain.$(bob, vibeNft)('transferFrom')(alice.address, charlie.address, theFirstNft);
-await chain.$(charlie, vibeNft)('setApprovalForAll')(alice.address, true);
-await chain.$(alice, vibeNft)('transferFrom')(charlie.address, bob.address, theFirstNft);
+const hello = $`Hello, World!`;
+await chain.contract(vibeNft, alice).fn('mint', { value: 10 })(alice.address, hello);
+await chain.contract(vibeNft, alice).fn('approve')(bob.address, hello.id);
+await chain.contract(vibeNft, bob).fn('transferFrom')(alice.address, charlie.address, hello.id);
+await chain.contract(vibeNft, charlie).fn('setApprovalForAll')(alice.address, true);
+await chain.contract(vibeNft, alice).fn('transferFrom')(charlie.address, bob.address, hello.id);
 await chain.createBlock();
 // console.log(nft.getReadonlyStorageSnapshot());
 

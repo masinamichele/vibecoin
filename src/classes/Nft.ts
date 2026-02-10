@@ -16,4 +16,4 @@ export class Nft {
   }
 }
 
-export const nft = (data: TemplateStringsArray) => new Nft({ data: data[0] });
+export const $ = (data: TemplateStringsArray) => new Nft({ data: data[0] });

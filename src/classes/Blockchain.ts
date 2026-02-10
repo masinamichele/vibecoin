@@ -190,26 +190,28 @@ abstract class BaseBlockchain {
     return this.getTotalSupply() - this.getDrainedAmount();
   }
 
-  $<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>>(
-    sender: Wallet,
+  contract<S extends ContractStorage, V extends ContractViews<S>, F extends ContractFunctions<S, V>>(
     contract: Contract<S, V, F>,
+    sender: Wallet,
   ) {
-    return (name: Exclude<keyof F, '__init__'>, { value = 0, gasLimit = config.DefaultGasLimit } = {}) => {
-      return (...args: any[]) => {
-        if (!this.contracts.has(contract.address)) throw new ChainError.NonExistentContract();
-        const callTransaction = new Transaction({
-          from: sender,
-          to: contract,
-          amount: value,
-          type: TransactionType.ContractCall,
-          contract: contract as Contract<any, any, any>,
-          functionName: name,
-          functionArgs: args,
-          gasLimit: gasLimit,
-        });
+    return {
+      fn: (name: Exclude<keyof F, '__init__'>, { value = 0, gasLimit = config.DefaultGasLimit } = {}) => {
+        return (...args: any[]) => {
+          if (!this.contracts.has(contract.address)) throw new ChainError.NonExistentContract();
+          const callTransaction = new Transaction({
+            from: sender,
+            to: contract,
+            amount: value,
+            type: TransactionType.ContractCall,
+            contract: contract as Contract<any, any, any>,
+            functionName: name,
+            functionArgs: args,
+            gasLimit: gasLimit,
+          });
 
-        return this.addTransaction(callTransaction);
-      };
+          return this.addTransaction(callTransaction);
+        };
+      },
     };
   }
 

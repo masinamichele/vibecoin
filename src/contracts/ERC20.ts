@@ -1,9 +1,9 @@
-import { Contract, type Wallet, createContractCode } from '#classes';
+import { Contract, type Wallet, code } from '#classes';
 import type { Address, Amount } from '#types';
 import { ChainError } from '#errors';
 
 // Standard ERC-20 contract
-export default {
+export const ERC20 = {
   new(
     owner: Wallet,
     options: {
@@ -15,7 +15,7 @@ export default {
     return new Contract({
       name: options.name,
       creator: owner,
-      code: createContractCode({
+      ...code({
         storage: {
           name: options.name,
           symbol: options.symbol,

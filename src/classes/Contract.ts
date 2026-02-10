@@ -40,12 +40,12 @@ export type ContractFunctions<S extends ContractStorage, V extends ContractViews
   (this: FunctionContext<S, V>, ...args: any[]) => any
 >;
 
-export function createContractCode<S extends ContractStorage, V extends ContractViews<S>>(code: {
+export function code<S extends ContractStorage, V extends ContractViews<S>>(code: {
   storage: S;
   views: V;
   functions: ContractFunctions<S, V>;
-}): typeof code {
-  return code;
+}): { code: typeof code } {
+  return { code };
 }
 
 type TransferRequest = {
