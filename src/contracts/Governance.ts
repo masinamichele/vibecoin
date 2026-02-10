@@ -50,6 +50,12 @@ export const Governance = {
             const proposalId = this.storage.nextProposalId;
             this.storage.proposals[proposalId] = { id: proposalId, target, isAddition, votes: [], executed: false };
             this.storage.nextProposalId++;
+            this.emit('ProposalCreated', {
+              proposalId,
+              proposer: this.msg.sender,
+              target: target.address,
+              isAddition,
+            });
             return proposalId;
           },
           vote(proposalId: number) {
@@ -58,6 +64,10 @@ export const Governance = {
             if (proposal.executed) throw new ChainError.InvalidData();
             if (proposal.votes.includes(this.msg.sender)) throw new ChainError.Unauthorized();
             proposal.votes.push(this.msg.sender);
+            this.emit('VoteCast', {
+              proposalId,
+              voter: this.msg.sender,
+            });
           },
           execute(proposalId: number) {
             const proposal = this.views.getProposal(proposalId);
@@ -67,13 +77,16 @@ export const Governance = {
             if (proposal.isAddition) {
               this.storage.authorities.push(proposal.target);
               this.storage.isAuthority[proposal.target.address] = true;
+              this.emit('AuthorityAdded', { addedAuthority: proposal.target.address });
             } else {
               const index = this.storage.authorities.indexOf(proposal.target);
               if (index === -1) throw new ChainError.InvalidData();
               this.storage.authorities.splice(index, 1);
               delete this.storage.isAuthority[proposal.target.address];
+              this.emit('AuthorityRemoved', { removedAuthority: proposal.target.address });
             }
             proposal.executed = true;
+            this.emit('ProposalExecuted', { proposalId });
           },
         },
       }),
