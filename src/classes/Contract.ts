@@ -6,6 +6,7 @@ import config from '#config';
 import { ChainError } from '#errors';
 import { CALL_CONTRACT, INITIALIZE_CONTRACT, REVERT_CONTRACT_STATE, TAKE_CONTRACT_SNAPSHOT } from '#sym';
 import type { ContractEvent, Recipient } from '#types';
+import EventEmitter from 'node:events';
 
 const log = getLogger('contract');
 
@@ -84,6 +85,14 @@ export class Contract<
 
   private gasUsed = 0;
   private gasLimit = 0;
+
+  private readonly emitter = new EventEmitter();
+  onContractEvents(callback: (event: ContractEvent) => void) {
+    this.emitter.on('ContractEvents', callback);
+    return () => {
+      this.emitter.off('ContractEvents', callback);
+    };
+  }
 
   constructor(data: ContractData<Storage, Views, Functions>) {
     this.name = data.name;
@@ -216,6 +225,7 @@ export class Contract<
         env,
         emit: (name, data) => {
           events.push({ contract: this.address, name, data });
+          this.emitter.emit('ContractEvents', name, data);
         },
       };
       Object.defineProperty(functionsContext, 'views', {
