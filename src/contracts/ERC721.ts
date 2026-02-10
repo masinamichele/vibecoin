@@ -37,12 +37,12 @@ export const ERC721 = {
           balanceOf(address: string) {
             return this.storage.ownerTokenCount[address] ?? 0;
           },
-          ownerOf(tokenId: string) {
+          ownerOf(tokenId: TokenId) {
             const owner = this.storage.tokenOwner[tokenId];
             if (!owner) throw new ChainError.NonExistentToken();
             return owner;
           },
-          tokenData(tokenId: string) {
+          tokenData(tokenId: TokenId) {
             const data = this.storage.tokenData[tokenId];
             if (!data) throw new ChainError.NonExistentToken();
             return data;
@@ -53,13 +53,13 @@ export const ERC721 = {
           symbol() {
             return this.storage.symbol;
           },
-          getApproved(tokenId: string) {
+          getApproved(tokenId: TokenId) {
             return this.storage.tokenApprovals[tokenId] ?? null;
           },
           isApprovedForAll(owner: string, operator: string) {
             return this.storage.operatorApprovals[owner]?.[operator] ?? false;
           },
-          royaltyInfo(tokenId: string, salePrice: number) {
+          royaltyInfo(tokenId: TokenId, salePrice: number) {
             const owner = this.storage.tokenOwner[tokenId];
             if (!owner) throw new ChainError.NonExistentToken();
             return {
@@ -67,12 +67,12 @@ export const ERC721 = {
               royaltyAmount: salePrice * this.storage.royaltyFraction,
             };
           },
-          userOf(tokenId: string) {
+          userOf(tokenId: TokenId) {
             const expires = this.storage.userExpires[tokenId];
             if (!expires || expires < Date.now()) return null;
             return this.storage.tokenUsers[tokenId] ?? null;
           },
-          userExpires(tokenId: string) {
+          userExpires(tokenId: TokenId) {
             return this.storage.userExpires[tokenId] ?? null;
           },
         },
